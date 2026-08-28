@@ -7,13 +7,8 @@ import { useState, useEffect } from 'react';
 import {
   LayoutDashboard,
   Inbox,
-  Brain,
-  PenLine,
-  Sparkles,
   CalendarDays,
-  BarChart2,
   Settings,
-  User,
   Hash,
   Wifi,
   WifiOff,
@@ -88,13 +83,8 @@ export function AppSidebarClient({
   const navItems = [
     { href: '/dashboard', labelKey: 'nav_dashboard' as const, icon: LayoutDashboard, badge: 0 },
     { href: '/inbox',     labelKey: 'nav_inbox'     as const, icon: Inbox,           badge: unreadCount },
-    { href: '/brain',     labelKey: 'nav_brain'     as const, icon: Brain,           badge: newDumpCount },
-    { href: '/canvas',    labelKey: 'nav_canvas'    as const, icon: PenLine,         badge: 0 },
-    { href: '/ai',        labelKey: 'nav_ai_agent'  as const, icon: Sparkles,        badge: 0 },
     { href: '/calendar',  labelKey: 'nav_calendar'  as const, icon: CalendarDays,    badge: 0 },
-    { href: '/analytics', labelKey: 'nav_analytics' as const, icon: BarChart2,       badge: 0 },
     { href: '/settings',  labelKey: 'nav_settings'  as const, icon: Settings,        badge: 0 },
-    ...(isOwner ? [{ href: '/admin', labelKey: 'nav_admin' as const, icon: User, badge: 0 }] : []),
   ];
 
   async function handleSignOut() {
@@ -341,11 +331,6 @@ export function AppSidebarClient({
                 <DropdownMenuItem onClick={() => router.push('/settings')}>
                   <Settings className="mr-2 size-4" />Settings
                 </DropdownMenuItem>
-                {user.plan !== 'pro' && (
-                  <DropdownMenuItem onClick={() => router.push('/settings')} className="text-primary focus:text-primary font-medium">
-                    <Sparkles className="mr-2 size-4" />Upgrade to Pro
-                  </DropdownMenuItem>
-                )}
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={handleSignOut} className="text-destructive focus:text-destructive">
                   <LogOut className="mr-2 size-4" />Sign out

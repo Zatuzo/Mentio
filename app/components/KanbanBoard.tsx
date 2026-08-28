@@ -4,14 +4,11 @@ import { useState, useEffect } from 'react';
 import { DragDropContext, Droppable, DropResult } from '@hello-pangea/dnd';
 import { KanbanTaskCard, type BoardTask } from './KanbanTaskCard';
 import { TaskDetailPanel } from './TaskDetailPanel';
-import { GeneratePromptModal } from './GeneratePromptModal';
 import { CreateTaskModal } from './CreateTaskModal';
-import { AIGenerateTasksModal } from './AIGenerateTasksModal';
 import { BulkAssignModal } from './BulkAssignModal';
 import { TaskListView } from './TaskListView';
 import { toast } from 'sonner';
-import { Plus, SquareKanban, List, LayoutGrid, Users, UserRound, PenLine } from 'lucide-react';
-import Link from 'next/link';
+import { Plus, List, LayoutGrid, Users, UserRound, SquareKanban } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { FilterChip } from '@/components/ui/filter-chip';
 import { EmptyState } from './EmptyState';
@@ -66,13 +63,11 @@ function applyDateFilter(tasks: BoardTask[], df: DateFilter): BoardTask[] {
 export function KanbanBoard({ initialTasks, projectId, projectName, projectGroups, statuses, members, currentUserId }: Props) {
   const [isMounted, setIsMounted] = useState(false);
   const [tasks, setTasks] = useState<BoardTask[]>(initialTasks);
-  const [promptTask, setPromptTask] = useState<BoardTask | null>(null);
   const [openTaskId, setOpenTaskId] = useState<string | null>(null);
   const [filterGroupId, setFilterGroupId] = useState<string | null>(null);
   const [dateFilter, setDateFilter] = useState<DateFilter>('all');
   const [onlyMine, setOnlyMine] = useState(false);
   const [createStatus, setCreateStatus] = useState<string | null>(null);
-  const [aiGenerateOpen, setAiGenerateOpen] = useState(false);
   const [bulkOpen, setBulkOpen] = useState(false);
   const [view, setView] = useState<ViewMode>('board');
 
@@ -99,10 +94,6 @@ export function KanbanBoard({ initialTasks, projectId, projectName, projectGroup
 
   const handleCreated = (task: BoardTask) => {
     setTasks((prev) => [task, ...prev]);
-  };
-
-  const handleBulkCreated = (newTasks: BoardTask[]) => {
-    setTasks((prev) => [...newTasks, ...prev]);
   };
 
   const handleStatusChange = async (id: string, newStatus: string) => {
@@ -285,13 +276,6 @@ export function KanbanBoard({ initialTasks, projectId, projectName, projectGroup
               <List className="h-3.5 w-3.5" />
             </button>
           </div>
-          <Link
-            href="/canvas/board"
-            title="Open in Canvas"
-            className="flex items-center justify-center h-7 w-7 rounded-md border border-border text-muted-foreground hover:text-foreground hover:bg-muted/40 transition-colors"
-          >
-            <PenLine className="h-3.5 w-3.5" />
-          </Link>
         </div>
       </div>
 
@@ -325,7 +309,6 @@ export function KanbanBoard({ initialTasks, projectId, projectName, projectGroup
           statuses={statuses}
           onOpen={(t) => setOpenTaskId(t.id)}
           onDelete={handleDelete}
-          onGeneratePrompt={setPromptTask}
           onStatusChange={handleStatusChange}
         />
         <CreateTaskModal
@@ -337,14 +320,6 @@ export function KanbanBoard({ initialTasks, projectId, projectName, projectGroup
           members={members}
           onClose={() => setCreateStatus(null)}
           onCreated={handleCreated}
-        />
-        <AIGenerateTasksModal
-          open={aiGenerateOpen}
-          projectId={projectId}
-          defaultStatus={statuses[0]?.slug ?? 'todo'}
-          members={members}
-          onClose={() => setAiGenerateOpen(false)}
-          onCreated={handleBulkCreated}
         />
         <BulkAssignModal
           open={bulkOpen}
@@ -372,11 +347,6 @@ export function KanbanBoard({ initialTasks, projectId, projectName, projectGroup
             }));
           }}
         />
-        <GeneratePromptModal
-          taskId={promptTask?.id ?? null}
-          taskTitle={promptTask?.title}
-          onClose={() => setPromptTask(null)}
-        />
         <TaskDetailPanel
           task={openTask}
           groups={projectGroups}
@@ -385,7 +355,6 @@ export function KanbanBoard({ initialTasks, projectId, projectName, projectGroup
           onClose={() => setOpenTaskId(null)}
           onUpdate={handleUpdate}
           onDelete={handleDelete}
-          onGeneratePrompt={setPromptTask}
         />
       </>
     );
@@ -451,7 +420,6 @@ export function KanbanBoard({ initialTasks, projectId, projectName, projectGroup
                         task={task}
                         index={index}
                         onDelete={handleDelete}
-                        onGeneratePrompt={setPromptTask}
                         onOpen={(t) => setOpenTaskId(t.id)}
                       />
                     ))}
@@ -474,15 +442,6 @@ export function KanbanBoard({ initialTasks, projectId, projectName, projectGroup
         members={members}
         onClose={() => setCreateStatus(null)}
         onCreated={handleCreated}
-      />
-
-      <AIGenerateTasksModal
-        open={aiGenerateOpen}
-        projectId={projectId}
-        defaultStatus={statuses[0]?.slug ?? 'todo'}
-        members={members}
-        onClose={() => setAiGenerateOpen(false)}
-        onCreated={handleBulkCreated}
       />
 
       <BulkAssignModal
@@ -510,12 +469,6 @@ export function KanbanBoard({ initialTasks, projectId, projectName, projectGroup
         }}
       />
 
-      <GeneratePromptModal
-        taskId={promptTask?.id ?? null}
-        taskTitle={promptTask?.title}
-        onClose={() => setPromptTask(null)}
-      />
-
       <TaskDetailPanel
         task={openTask}
         groups={projectGroups}
@@ -524,7 +477,6 @@ export function KanbanBoard({ initialTasks, projectId, projectName, projectGroup
         onClose={() => setOpenTaskId(null)}
         onUpdate={handleUpdate}
         onDelete={handleDelete}
-        onGeneratePrompt={setPromptTask}
       />
     </DragDropContext>
   );

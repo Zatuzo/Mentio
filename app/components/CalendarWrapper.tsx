@@ -1,14 +1,12 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState } from 'react';
 import { EventManager, type Event } from '@/components/ui/event-manager';
 import { TaskDetailPanel } from './TaskDetailPanel';
 import { CreateTaskModal } from './CreateTaskModal';
-import { GanttView } from './GanttView';
 import type { BoardTask } from './KanbanTaskCard';
 import type { ProjectStatus, ProjectMember } from './KanbanBoard';
 import { toast } from 'sonner';
-import { CalendarDays, GanttChartSquare } from 'lucide-react';
 
 // ── Priority ↔ Color mappings ─────────────────────────────────────────────────
 const PRIORITY_TO_COLOR: Record<string, string> = {
@@ -126,8 +124,6 @@ export function CalendarWrapper({ initialTasks, initialReminders, projectId, pro
   const [tasks, setTasks] = useState<BoardTask[]>(initialTasks);
   const [openTask, setOpenTask]     = useState<BoardTask | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
-  const [view, setView] = useState<'calendar' | 'gantt'>('calendar');
-  // Increment to force EventManager re-render when tasks change
   const [calendarKey, setCalendarKey] = useState(0);
 
   const events: Event[] = [
@@ -157,23 +153,6 @@ export function CalendarWrapper({ initialTasks, initialReminders, projectId, pro
     }
   };
 
-  const handleGanttMove = async (id: string, startAt: Date, endAt: Date | null) => {
-    const patch = {
-      startDate: startAt.toISOString(),
-      dueDate:   endAt ? endAt.toISOString() : startAt.toISOString(),
-    };
-    setTasks(prev => prev.map(t => t.id === id ? { ...t, ...patch } : t));
-    try {
-      await fetch(`/api/tasks/${id}`, {
-        method: 'PATCH',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ startDate: patch.startDate, dueDate: patch.dueDate }),
-      });
-    } catch {
-      toast.error('Failed to update task dates');
-    }
-  };
-
   const handleCreated = (task: BoardTask) => {
     setTasks(prev => [task, ...prev]);
     setCalendarKey(k => k + 1);
@@ -182,35 +161,6 @@ export function CalendarWrapper({ initialTasks, initialReminders, projectId, pro
 
   return (
     <>
-      {/* View toggle */}
-      <div className="flex items-center justify-end px-4 py-2 border-b border-border shrink-0">
-        <div className="flex items-center gap-1 rounded-lg border border-border bg-muted/40 p-1">
-          <button
-            onClick={() => setView('calendar')}
-            className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
-              view === 'calendar'
-                ? 'bg-background shadow-sm text-foreground'
-                : 'text-muted-foreground hover:text-foreground'
-            }`}
-          >
-            <CalendarDays className="h-3.5 w-3.5" />
-            Calendar
-          </button>
-          <button
-            onClick={() => setView('gantt')}
-            className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
-              view === 'gantt'
-                ? 'bg-background shadow-sm text-foreground'
-                : 'text-muted-foreground hover:text-foreground'
-            }`}
-          >
-            <GanttChartSquare className="h-3.5 w-3.5" />
-            Gantt
-          </button>
-        </div>
-      </div>
-
-      {view === 'calendar' && (
       <EventManager
         key={calendarKey}
         events={events}
@@ -221,17 +171,6 @@ export function CalendarWrapper({ initialTasks, initialReminders, projectId, pro
         onEventClickOverride={handleEventClick}
         onNewEventClickOverride={() => setCreateOpen(true)}
       />
-      )}
-
-      {view === 'gantt' && (
-        <div className="flex-1 overflow-hidden p-4">
-          <GanttView
-            tasks={tasks}
-            onMove={handleGanttMove}
-            onTaskClick={setOpenTask}
-          />
-        </div>
-      )}
 
       {/* Task detail — reuses existing panel */}
       <TaskDetailPanel
@@ -242,7 +181,6 @@ export function CalendarWrapper({ initialTasks, initialReminders, projectId, pro
         onClose={() => setOpenTask(null)}
         onUpdate={handleUpdate}
         onDelete={handleDelete}
-        onGeneratePrompt={() => {}}
       />
 
       {/* Create task — reuses existing modal */}

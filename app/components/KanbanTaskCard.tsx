@@ -3,7 +3,7 @@
 import type React from 'react';
 import { useState } from 'react';
 import { Draggable } from '@hello-pangea/dnd';
-import { Trash2, Sparkles, Bot, Loader2, GitPullRequest } from 'lucide-react';
+import { Trash2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -61,11 +61,10 @@ interface Props {
   task: BoardTask;
   index: number;
   onDelete: (id: string) => void;
-  onGeneratePrompt: (task: BoardTask) => void;
   onOpen: (task: BoardTask) => void;
 }
 
-export function KanbanTaskCard({ task, index, onDelete, onGeneratePrompt, onOpen }: Props) {
+export function KanbanTaskCard({ task, index, onDelete, onOpen }: Props) {
   const priority = PRIORITY_CONFIG[task.priority] ?? PRIORITY_CONFIG.none;
   const t = useT();
   const [deleteOpen, setDeleteOpen] = useState(false);
@@ -136,15 +135,6 @@ export function KanbanTaskCard({ task, index, onDelete, onGeneratePrompt, onOpen
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="h-5 w-5 text-muted-foreground hover:text-primary"
-                  title="Generate coding prompt"
-                  onClick={(e) => { e.stopPropagation(); onGeneratePrompt(task); }}
-                >
-                  <Sparkles className="h-3 w-3" />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="icon"
                   className="h-5 w-5 text-muted-foreground hover:text-destructive"
                   onClick={(e) => { e.stopPropagation(); setDeleteOpen(true); }}
                 >
@@ -154,32 +144,6 @@ export function KanbanTaskCard({ task, index, onDelete, onGeneratePrompt, onOpen
             </div>
 
             <h4 className="text-sm font-medium text-foreground leading-snug">{task.title}</h4>
-
-            {/* Agent status badge */}
-            {task.agentStatus === 'running' && (
-              <div className="flex items-center gap-1 mt-1.5 text-[10px] text-primary font-medium">
-                <Loader2 className="h-2.5 w-2.5 animate-spin" />
-                {t('task_agent_running')}
-              </div>
-            )}
-            {task.agentStatus === 'done' && task.agentPrUrl && (
-              <a
-                href={task.agentPrUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                onClick={(e) => e.stopPropagation()}
-                className="flex items-center gap-1 mt-1.5 text-[10px] text-primary hover:underline font-medium"
-              >
-                <GitPullRequest className="h-2.5 w-2.5" />
-                {t('task_agent_pr_ready')}
-              </a>
-            )}
-            {task.agentStatus === 'failed' && (
-              <div className="flex items-center gap-1 mt-1.5 text-[10px] text-destructive font-medium">
-                <Bot className="h-2.5 w-2.5" />
-                {t('task_agent_failed')}
-              </div>
-            )}
 
             {task.description && (
               <p className="text-xs text-muted-foreground line-clamp-1 mt-1 leading-relaxed">

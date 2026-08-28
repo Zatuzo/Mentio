@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { MessageCircle, FolderKanban, Users, Puzzle, Code2, Brain, Sparkles, Palette } from 'lucide-react';
+import { MessageCircle, FolderKanban, Users, Puzzle, Palette } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useT } from '@/lib/i18n';
 import { useThemeVariant } from '@/hooks/use-theme-variant';
@@ -12,9 +12,6 @@ const NAV_ITEMS = [
   { href: '/settings/project',      labelKey: 'settings_project',      icon: FolderKanban  },
   { href: '/settings/team',         labelKey: 'settings_team',         icon: Users         },
   { href: '/settings/integrations', labelKey: 'settings_integrations', icon: Puzzle        },
-  { href: '/settings/brain',        labelKey: 'settings_brain',        icon: Brain         },
-  { href: '/settings/ai-manage',    labelKey: 'settings_ai_manage',    icon: Sparkles      },
-  { href: '/settings/developer',    labelKey: 'settings_developer',    icon: Code2         },
   { href: '/settings/appearance',   labelKey: 'settings_appearance',   icon: Palette       },
 ] as const;
 

@@ -3,7 +3,7 @@ import { getSession } from '@/app/lib/session';
 import { redirect } from 'next/navigation';
 import { cookies } from 'next/headers';
 import { DashboardStats } from '@/app/components/DashboardStats';
-import { DashboardTabs } from '@/app/components/DashboardTabs';
+import { KanbanBoard } from '@/app/components/KanbanBoard';
 import { SummarizeButton } from '@/app/components/SummarizeButton';
 import { CreateProjectButton } from '@/app/components/CreateProjectButton';
 import { EmptyState } from '@/app/components/EmptyState';
@@ -59,7 +59,7 @@ export default async function DashboardPage() {
   const projectId = userMember.projectId;
   const projectName = userMember.project.name;
 
-  const [tasks, projectGroupLinks, projectStatuses, projectMemberLinks, todoTasks, projectMeta] = await Promise.all([
+  const [tasks, projectGroupLinks, projectStatuses, projectMemberLinks] = await Promise.all([
     prisma.task.findMany({
       where: { projectId },
       include: {
@@ -68,7 +68,6 @@ export default async function DashboardPage() {
         assignedTo: { select: { id: true, name: true, image: true } },
       },
       orderBy: { createdAt: 'desc' },
-      // agent fields auto-included via include
     }),
     prisma.projectGroup.findMany({
       where: { projectId },
@@ -82,23 +81,6 @@ export default async function DashboardPage() {
     prisma.projectMember.findMany({
       where: { projectId },
       include: { user: { select: { id: true, name: true, image: true } } },
-    }),
-    prisma.task.findMany({
-      where: { assignedToId: userId },
-      select: {
-        id: true, title: true, status: true, priority: true, source: true,
-        dueDate: true, completedAt: true, startDate: true, createdAt: true,
-        requester: true, description: true, imageUrls: true,
-        sourceNoteId: true,
-        sourceNote: { select: { id: true, title: true } },
-        project: { select: { id: true, name: true } },
-        assignedTo: { select: { id: true, name: true, image: true } },
-      },
-      orderBy: { createdAt: 'desc' },
-    }).catch(() => []),
-    prisma.project.findUnique({
-      where: { id: projectId },
-      select: { brief: true, briefUpdatedAt: true, briefUpdaterName: true },
     }),
   ]);
 
@@ -118,25 +100,6 @@ export default async function DashboardPage() {
     } : null,
   }));
 
-  const serializedTodoTasks = todoTasks.map(task => ({
-    id: task.id,
-    title: task.title,
-    status: task.status,
-    priority: task.priority,
-    source: (task as { source?: string }).source ?? null,
-    dueDate: task.dueDate ? task.dueDate.toISOString() : null,
-    completedAt: task.completedAt ? task.completedAt.toISOString() : null,
-    createdAt: task.createdAt ? task.createdAt.toISOString() : null,
-    startDate: task.startDate ? task.startDate.toISOString() : null,
-    requester: task.requester ?? null,
-    description: task.description ?? null,
-    sourceNoteId: task.sourceNoteId ?? null,
-    sourceNote: task.sourceNote ?? null,
-    project: task.project ?? null,
-    assignedTo: task.assignedTo ?? null,
-    imageUrls: (task as { imageUrls?: string[] }).imageUrls ?? [],
-  }));
-
   return (
     <div className="space-y-6 w-full min-w-0">
       <div className="flex items-center justify-between">
@@ -148,18 +111,14 @@ export default async function DashboardPage() {
 
       <DashboardStats />
 
-      <DashboardTabs
-        projectTasks={serializedTasks}
-        todoTasks={serializedTodoTasks}
+      <KanbanBoard
+        initialTasks={serializedTasks}
         projectId={projectId}
         projectName={projectName}
         projectGroups={projectGroups}
         statuses={projectStatuses}
         members={members}
         currentUserId={userId}
-        initialBrief={projectMeta?.brief ?? null}
-        briefUpdatedAt={projectMeta?.briefUpdatedAt?.toISOString() ?? null}
-        briefUpdaterName={projectMeta?.briefUpdaterName ?? null}
       />
     </div>
   );

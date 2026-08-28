@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutDashboard, Settings, User, Inbox, CalendarDays, BarChart2, Sparkles, Brain, PenLine } from 'lucide-react';
+import { LayoutDashboard, Settings, Inbox, CalendarDays } from 'lucide-react';
 import {
   SidebarGroup,
   SidebarGroupContent,
@@ -21,20 +21,15 @@ interface Props {
 }
 
 // ── Default variant (dark / light / nord / mocha / sunset) ──────────────
-function SidebarNavDefault({ isOwner, unreadCount = 0, newDumpCount = 0 }: Props) {
+function SidebarNavDefault({ unreadCount = 0 }: Props) {
   const pathname = usePathname();
   const t = useT();
 
   const items = [
     { href: '/dashboard', labelKey: 'nav_dashboard'  as const, icon: LayoutDashboard, badge: 0 },
     { href: '/inbox',     labelKey: 'nav_inbox'      as const, icon: Inbox,           badge: unreadCount },
-    { href: '/brain',     labelKey: 'nav_brain'      as const, icon: Brain,           badge: newDumpCount },
-    { href: '/canvas',    labelKey: 'nav_canvas'     as const, icon: PenLine,         badge: 0 },
-    { href: '/ai',        labelKey: 'nav_ai_agent'   as const, icon: Sparkles,        badge: 0 },
     { href: '/calendar',  labelKey: 'nav_calendar'   as const, icon: CalendarDays,    badge: 0 },
-    { href: '/analytics', labelKey: 'nav_analytics'  as const, icon: BarChart2,       badge: 0 },
     { href: '/settings',  labelKey: 'nav_settings'   as const, icon: Settings,        badge: 0 },
-    ...(isOwner ? [{ href: '/admin', labelKey: 'nav_admin' as const, icon: User, badge: 0 }] : []),
   ];
 
   return (
@@ -67,20 +62,15 @@ function SidebarNavDefault({ isOwner, unreadCount = 0, newDumpCount = 0 }: Props
 // ── Brutalism variant (Swiss Industrial Print) ──────────────────────────
 const BRUTALISM_RED = '#E61919';
 
-function SidebarNavBrutalism({ isOwner, unreadCount = 0, newDumpCount = 0 }: Props) {
+function SidebarNavBrutalism({ unreadCount = 0 }: Props) {
   const pathname = usePathname();
   const t = useT();
 
   const items = [
     { href: '/dashboard', labelKey: 'nav_dashboard' as const, code: 'D-01', badge: 0 },
     { href: '/inbox',     labelKey: 'nav_inbox'     as const, code: 'D-02', badge: unreadCount },
-    { href: '/brain',     labelKey: 'nav_brain'     as const, code: 'D-03', badge: newDumpCount },
-    { href: '/canvas',    labelKey: 'nav_canvas'    as const, code: 'D-04', badge: 0 },
-    { href: '/ai',        labelKey: 'nav_ai_agent'  as const, code: 'D-05', badge: 0 },
-    { href: '/calendar',  labelKey: 'nav_calendar'  as const, code: 'D-06', badge: 0 },
-    { href: '/analytics', labelKey: 'nav_analytics' as const, code: 'D-07', badge: 0 },
+    { href: '/calendar',  labelKey: 'nav_calendar'  as const, code: 'D-03', badge: 0 },
     { href: '/settings',  labelKey: 'nav_settings'  as const, code: 'SYS-1', badge: 0 },
-    ...(isOwner ? [{ href: '/admin', labelKey: 'nav_admin' as const, code: 'SYS-2', badge: 0 }] : []),
   ];
 
   return (
@@ -133,4 +123,3 @@ export function SidebarNav(props: Props) {
   if (variant === 'brutalism') return <SidebarNavBrutalism {...props} />;
   return <SidebarNavDefault {...props} />;
 }
-

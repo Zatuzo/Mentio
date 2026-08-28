@@ -20,7 +20,7 @@ export async function AppSidebar() {
   const isOwner = !!(session.user as any).isOwner;
   const cookieProjectId = cookies().get('mentio_project_id')?.value;
 
-  const [members, waSession, unreadCount, newDumpCount] = await Promise.all([
+  const [members, waSession, unreadCount] = await Promise.all([
     prisma.projectMember.findMany({
       where: { userId },
       include: { project: true },
@@ -28,7 +28,6 @@ export async function AppSidebar() {
     }),
     prisma.waSession.findUnique({ where: { userId }, select: { connected: true } }),
     prisma.mention.count({ where: { userId, processed: false } }),
-    prisma.note.count({ where: { userId, isNew: true } }),
   ]);
 
   const validCookieProject = cookieProjectId && members.some((m) => m.projectId === cookieProjectId);
@@ -61,7 +60,7 @@ export async function AppSidebar() {
         <AppSidebarClient
           isOwner={isOwner}
           unreadCount={unreadCount}
-          newDumpCount={newDumpCount as number}
+          newDumpCount={0}
           connected={connected}
           user={user}
           projects={projects}
@@ -72,7 +71,6 @@ export async function AppSidebar() {
       <MobileBottomBar
         isOwner={isOwner}
         unreadCount={unreadCount}
-        newDumpCount={newDumpCount as number}
       />
     </>
   );

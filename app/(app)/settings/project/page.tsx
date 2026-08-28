@@ -2,13 +2,9 @@ import { prisma } from '@/app/lib/db';
 import { getSession } from '@/app/lib/session';
 import { redirect } from 'next/navigation';
 import { cookies } from 'next/headers';
-import { ProjectCodebaseSettings } from '@/app/components/ProjectCodebaseSettings';
 import { BotMessagesSettings } from '@/app/components/BotMessagesSettings';
 import { WorkflowSettings } from '@/app/components/WorkflowSettings';
-import { ConnectGithub } from '@/app/components/ConnectGithub';
 import { ProjectGroupsSettings } from '@/app/components/ProjectGroupsSettings';
-import { isGithubOAuthEnabled } from '@/app/lib/auth';
-import { hasGithubAccount } from '@/app/lib/github-token';
 
 export const dynamic = 'force-dynamic';
 
@@ -43,8 +39,7 @@ export default async function ProjectSettingsPage() {
     );
   }
 
-  const [githubConnected, projectStatuses, projectGroupsData] = await Promise.all([
-    hasGithubAccount(userId),
+  const [projectStatuses, projectGroupsData] = await Promise.all([
     prisma.projectStatus.findMany({
       where: { projectId: activeMember.projectId },
       orderBy: { order: 'asc' },
@@ -73,31 +68,6 @@ export default async function ProjectSettingsPage() {
 
   return (
     <div className="space-y-10">
-      <section>
-        <h3 className="text-lg font-medium mb-1">Codebase & Context</h3>
-        <p className="text-sm text-muted-foreground mb-4">
-          Context for <strong>{activeMember.project.name}</strong>. Used when generating coding
-          prompts from tasks — the PRD, conventions, and linked GitHub repo all get folded into
-          the prompt.
-        </p>
-        <div className="mb-4">
-          <ConnectGithub connected={githubConnected} oauthEnabled={isGithubOAuthEnabled} />
-        </div>
-        <ProjectCodebaseSettings
-          isAdmin={isAdmin}
-          githubConnected={githubConnected}
-          config={{
-            id: activeMember.project.id,
-            prd: activeMember.project.prd,
-            techStack: activeMember.project.techStack,
-            conventions: activeMember.project.conventions,
-            hasToken: !!activeMember.project.githubToken,
-            myDefaultRepoId: activeMember.defaultRepoId,
-          }}
-        />
-      </section>
-
-      <hr className="border-border" />
 
       <section>
         <h3 className="text-lg font-medium mb-1">Bot Messages</h3>

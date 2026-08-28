@@ -244,7 +244,6 @@ export function CalendarView({ initialTasks, initialReminders, projectId, projec
         onClose={() => setOpenTask(null)}
         onUpdate={handleUpdate}
         onDelete={handleDelete}
-        onGeneratePrompt={() => {}}
       />
 
       {/* Create task modal — pre-fill dueDate with clicked day */}

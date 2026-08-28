@@ -4,34 +4,28 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  LayoutDashboard, Inbox, Brain, PenLine, Sparkles,
-  CalendarDays, BarChart2, Settings, User, ChevronLeft, ChevronRight,
+  LayoutDashboard, Inbox,
+  CalendarDays, Settings, ChevronLeft, ChevronRight,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const STORAGE_KEY   = 'mentio_bottom_bar_v1';
 const LONG_PRESS_MS = 1500;
 const SWIPE_STEP_PX = 48; // px per item step
-const CENTER_IDX    = 2;
+const CENTER_IDX    = -1;
 
 const ALL_ITEMS = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, href: '/dashboard' },
   { id: 'inbox',     label: 'Inbox',     icon: Inbox,           href: '/inbox'     },
-  { id: 'brain',     label: 'Brain',     icon: Brain,           href: '/brain'     },
-  { id: 'canvas',    label: 'Canvas',    icon: PenLine,         href: '/canvas'    },
-  { id: 'ai',        label: 'AI Agent',  icon: Sparkles,        href: '/ai'        },
   { id: 'calendar',  label: 'Calendar',  icon: CalendarDays,    href: '/calendar'  },
-  { id: 'analytics', label: 'Analytics', icon: BarChart2,       href: '/analytics' },
   { id: 'settings',  label: 'Settings',  icon: Settings,        href: '/settings'  },
-  { id: 'admin',     label: 'Admin',     icon: User,            href: '/admin'     },
 ];
 
-const DEFAULT_IDS = ['dashboard', 'inbox', 'brain', 'canvas', 'ai'];
+const DEFAULT_IDS = ['dashboard', 'inbox', 'calendar', 'settings'];
 
 interface Props {
   isOwner?: boolean;
   unreadCount?: number;
-  newDumpCount?: number;
 }
 
 function loadSaved(): string[] {
@@ -40,13 +34,13 @@ function loadSaved(): string[] {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
       const p = JSON.parse(raw);
-      if (Array.isArray(p) && p.length === 5) return p;
+      if (Array.isArray(p) && p.length === DEFAULT_IDS.length) return p;
     }
   } catch {}
   return DEFAULT_IDS;
 }
 
-export function MobileBottomBar({ isOwner = false, unreadCount = 0, newDumpCount = 0 }: Props) {
+export function MobileBottomBar({ isOwner = false, unreadCount = 0 }: Props) {
   const router   = useRouter();
   const pathname = usePathname();
 
@@ -71,13 +65,13 @@ export function MobileBottomBar({ isOwner = false, unreadCount = 0, newDumpCount
 
   useEffect(() => { setSelectedIds(loadSaved()); }, []);
 
-  const availableItems = isOwner ? ALL_ITEMS : ALL_ITEMS.filter(i => i.id !== 'admin');
+  const availableItems = ALL_ITEMS;
   const items = selectedIds
     .map(id => ALL_ITEMS.find(n => n.id === id))
     .filter(Boolean) as typeof ALL_ITEMS;
 
   const isActive = (href: string) => pathname === href || pathname.startsWith(href + '/');
-  const getBadge = (id: string)   => id === 'inbox' ? unreadCount : id === 'brain' ? newDumpCount : 0;
+  const getBadge = (id: string)   => id === 'inbox' ? unreadCount : 0;
 
   // Item shown in each slot during dock vs normal
   function getSlotItem(slotIdx: number) {

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Circle, CheckCircle2, Dot, Trash2, Sparkles, ChevronDown, ChevronRight, AlertCircle, ArrowUp, ArrowRight, ArrowDown, Minus, type LucideIcon } from 'lucide-react';
+import { Circle, CheckCircle2, Dot, Trash2, ChevronDown, ChevronRight, AlertCircle, ArrowUp, ArrowRight, ArrowDown, Minus, type LucideIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { type BoardTask, PRIORITY_CONFIG } from './KanbanTaskCard';
@@ -20,7 +20,6 @@ interface Props {
   statuses: ProjectStatus[];
   onOpen: (task: BoardTask) => void;
   onDelete: (id: string) => void;
-  onGeneratePrompt: (task: BoardTask) => void;
   onStatusChange: (id: string, status: string) => void;
 }
 
@@ -29,14 +28,12 @@ function TaskRow({
   statuses,
   onOpen,
   onDelete,
-  onGeneratePrompt,
   onStatusChange,
 }: {
   task: BoardTask;
   statuses: ProjectStatus[];
   onOpen: (t: BoardTask) => void;
   onDelete: (id: string) => void;
-  onGeneratePrompt: (t: BoardTask) => void;
   onStatusChange: (id: string, status: string) => void;
 }) {
   const currentIdx = statuses.findIndex((s) => s.slug === task.status);
@@ -106,15 +103,6 @@ function TaskRow({
         <Button
           variant="ghost"
           size="icon"
-          className="h-6 w-6 text-muted-foreground hover:text-primary"
-          title="Generate prompt"
-          onClick={(e) => { e.stopPropagation(); onGeneratePrompt(task); }}
-        >
-          <Sparkles className="h-3 w-3" />
-        </Button>
-        <Button
-          variant="ghost"
-          size="icon"
           className="h-6 w-6 text-muted-foreground hover:text-destructive"
           onClick={(e) => { e.stopPropagation(); onDelete(task.id); }}
         >
@@ -131,7 +119,6 @@ function StatusSection({
   statuses,
   onOpen,
   onDelete,
-  onGeneratePrompt,
   onStatusChange,
 }: {
   status: ProjectStatus;
@@ -139,7 +126,6 @@ function StatusSection({
   statuses: ProjectStatus[];
   onOpen: (t: BoardTask) => void;
   onDelete: (id: string) => void;
-  onGeneratePrompt: (t: BoardTask) => void;
   onStatusChange: (id: string, status: string) => void;
 }) {
   const [collapsed, setCollapsed] = useState(status.isDone);
@@ -181,7 +167,6 @@ function StatusSection({
               statuses={statuses}
               onOpen={onOpen}
               onDelete={onDelete}
-              onGeneratePrompt={onGeneratePrompt}
               onStatusChange={onStatusChange}
             />
           ))}
@@ -197,7 +182,7 @@ function StatusSection({
   );
 }
 
-export function TaskListView({ tasks, statuses, onOpen, onDelete, onGeneratePrompt, onStatusChange }: Props) {
+export function TaskListView({ tasks, statuses, onOpen, onDelete, onStatusChange }: Props) {
   return (
     <div className="space-y-3">
       {statuses.map((status) => {
@@ -210,7 +195,6 @@ export function TaskListView({ tasks, statuses, onOpen, onDelete, onGenerateProm
             statuses={statuses}
             onOpen={onOpen}
             onDelete={onDelete}
-            onGeneratePrompt={onGeneratePrompt}
             onStatusChange={onStatusChange}
           />
         );
