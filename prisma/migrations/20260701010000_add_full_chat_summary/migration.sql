@@ -1,0 +1,1 @@
+ALTER TABLE "UserGroup" ADD COLUMN "fullChatSummary" BOOLEAN NOT NULL DEFAULT false;

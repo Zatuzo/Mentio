@@ -1,0 +1,27 @@
+node_modules
+.next
+data/
+auth_info/
+.env
+*.log
+tsconfig.tsbuildinfo
+dist/
+
+# MCP config (contains API key + absolute paths)
+.mcp.json
+
+# Local env files
+.env.local
+.env.*.local
+
+# Claude Code worktrees and skills cache
+.claude/worktrees/
+skills-lock.json
+
+# Remotion video workspace — render output only, source tracked in video/
+video/node_modules/
+video/out/
+video/.remotion/
+
+# User-uploaded images (created at runtime on VPS)
+public/uploads/

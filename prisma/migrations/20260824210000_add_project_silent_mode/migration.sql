@@ -1,0 +1,1 @@
+ALTER TABLE "Project" ADD COLUMN "silentMode" BOOLEAN NOT NULL DEFAULT false;

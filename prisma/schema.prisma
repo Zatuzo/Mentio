@@ -1,0 +1,724 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DATABASE_URL_UNPOOLED")
+}
+
+// ─── Better Auth tables ───────────────────────────────────────────────────────
+
+model user {
+  id            String    @id
+  name          String
+  email         String    @unique
+  emailVerified Boolean   @default(false)
+  image         String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  plan          String    @default("free")   // free | pro
+  planExpiresAt DateTime?
+  waMode        String    @default("shared") // shared | own
+  isOwner       Boolean   @default(false)
+
+  telegramChatId  String?
+  telegramEnabled Boolean  @default(false)
+  waDumpEnabled   Boolean  @default(false)
+  dumpJid         String?  // linked WA number for dump notes (sender JID)
+  dumpTaskEmoji   String?  @default("✅") // emoji reaction to convert dump note → task
+
+  sessions            session[]
+  accounts            account[]
+  watchedJids         WatchedJid[]
+  userGroups          UserGroup[]
+  mentions            Mention[]
+  summaries           Summary[]
+  tasks               Task[]
+  assignedTasks       Task[]              @relation("AssignedTasks")
+  waSession           WaSession?
+  discoveredJids      DiscoveredJid[]
+  projectMembers      ProjectMember[]
+  groupClaims         GroupClaim[]
+  reminders           Reminder[]
+  googleCalendarToken GoogleCalendarToken?
+  apiKeys             ApiKey[]
+  aiChatSessions      AiChatSession[]
+  clipToken           String?  @unique
+  spaces              Space[]
+  notes               Note[]
+  tags                Tag[]
+  digests             Digest[]
+  todoNotifSettings   TodoNotifSettings?
+  lmsConnection       LmsConnection?
+  canvases            Canvas[]
+}
+
+model session {
+  id        String   @id
+  expiresAt DateTime
+  token     String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  ipAddress String?
+  userAgent String?
+  userId    String
+  user      user     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model account {
+  id                    String    @id
+  accountId             String
+  providerId            String
+  userId                String
+  user                  user      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken           String?   @db.Text
+  refreshToken          String?   @db.Text
+  idToken               String?   @db.Text
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  @@unique([providerId, accountId])
+}
+
+model verification {
+  id         String   @id
+  identifier String
+  value      String   @db.Text
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+// ─── App tables ───────────────────────────────────────────────────────────────
+
+model Group {
+  id         String      @id
+  name       String
+  createdAt  DateTime    @default(now())
+  mentions   Mention[]
+  summaries  Summary[]
+  userGroups UserGroup[]
+  tasks      Task[]
+  projectGroups ProjectGroup[]
+  members    GroupMember[]
+}
+
+// Participants of a WhatsApp group, synced from groupMetadata() when claimed.
+// Lets users pick watched numbers from a list instead of typing them.
+model GroupMember {
+  id        String   @id @default(cuid())
+  groupId   String
+  group     Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  jid       String // participant JID (@s.whatsapp.net or @lid)
+  phone     String? // extracted number when JID is a phone JID
+  name      String? // best-effort display name (from message history)
+  isAdmin   Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([groupId, jid])
+  @@index([groupId])
+}
+
+model Task {
+  id           String    @id @default(cuid())
+  userId       String
+  user         user      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  assignedToId String?
+  assignedTo   user?     @relation("AssignedTasks", fields: [assignedToId], references: [id])
+  groupId      String?
+  group        Group?    @relation(fields: [groupId], references: [id])
+  projectId    String?
+  project      Project?  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  summaryId    String?
+  title        String
+  description  String?   @db.Text
+  status       String    @default("todo")     // todo | in_progress | done
+  priority     String    @default("none")     // urgent | high | medium | low | none
+  mentionId    String?
+  mention      Mention?  @relation(fields: [mentionId], references: [id])
+  sourceNoteId String?
+  sourceNote   Note?     @relation("NoteToTasks", fields: [sourceNoteId], references: [id], onDelete: SetNull)
+  requester    String?
+  requesterJid String?
+  startDate     DateTime?
+  dueDate       DateTime?
+  completedAt   DateTime?
+  googleEventId String?
+  lmsSourceId   String?   // UID from iCal (dedup LMS tasks)
+  source        String    @default("manual") // manual | lms | wa_dump | telegram | ai | mention
+  // Agent execution
+  agentEnabled  Boolean   @default(false)
+  agentStatus   String?   // running | done | failed
+  agentResult   String?   @db.Text  // markdown summary dari agent
+  agentPrUrl    String?   // GitHub PR URL
+  agentBranch   String?   // branch yang dibuat agent
+  agentError    String?   @db.Text
+  agentLog      String?   @db.Text  // JSON array of {time,type,message} entries
+  agentStartedAt DateTime?
+  agentFinishedAt DateTime?
+  imageUrls     String[]  @default([])
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  tags          TaskTag[]
+
+  @@index([userId, status])
+  @@index([groupId])
+  @@index([projectId])
+  @@index([assignedToId])
+}
+
+model UserGroup {
+  id                   String    @id @default(cuid())
+  userId               String
+  user                 user      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  groupId              String
+  group                Group     @relation(fields: [groupId], references: [id])
+  enabled              Boolean   @default(true)
+  autoSummarize        Boolean   @default(false)
+  lastAutoSummarizedAt DateTime?
+  fullChatSummary      Boolean   @default(false)
+
+  @@unique([userId, groupId])
+}
+
+model WaSession {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  user      user     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  authDir   String
+  connected Boolean  @default(false)
+  myJid     String?
+  myLid     String?
+  qrCode    String?  @db.Text
+  updatedAt DateTime @updatedAt
+}
+
+model Mention {
+  id           String   @id @default(cuid())
+  groupId      String
+  group        Group    @relation(fields: [groupId], references: [id])
+  userId       String?
+  user         user?    @relation(fields: [userId], references: [id])
+  messageId    String
+  senderJid    String
+  senderName   String?
+  text         String   @db.Text
+  mentionedJid String?
+  timestamp    DateTime
+  processed    Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  tasks        Task[]
+  savedAsNoteId String?
+  imageUrls     String[] @default([])
+  tags          MentionTag[]
+  savedNote     Note?   @relation("MentionSavedNote")
+
+  // One WhatsApp message can be a mention for multiple users — unique per user,
+  // not globally, so each watcher gets their own Mention row.
+  @@unique([messageId, userId])
+  @@index([groupId, processed])
+  @@index([userId, processed])
+  @@index([timestamp])
+}
+
+model WatchedJid {
+  id        String   @id @default(cuid())
+  userId    String
+  user      user     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  jid       String
+  label     String?
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  @@unique([userId, jid])
+}
+
+model DiscoveredJid {
+  id          String   @id @default(cuid())
+  userId      String
+  user        user     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  jid         String
+  seenInGroup String?
+  seenCount   Int      @default(1)
+  firstSeen   DateTime @default(now())
+  lastSeen    DateTime @default(now())
+
+  @@unique([userId, jid])
+}
+
+// Scheduled reminders created via /remind command. A worker polls these and
+// queues them into MessageQueue when scheduledAt arrives.
+model Reminder {
+  id          String    @id @default(cuid())
+  userId      String
+  user        user      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  groupId     String    // where to send the reminder
+  message     String    @db.Text
+  scheduledAt DateTime
+  sent        Boolean   @default(false)
+  sentAt      DateTime?
+  canceledAt  DateTime?
+  createdAt   DateTime  @default(now())
+
+  @@index([sent, scheduledAt])
+  @@index([userId, sent])
+}
+
+model MessageQueue {
+  id        String   @id @default(cuid())
+  userId    String
+  groupId   String
+  taskId    String?
+  message   String   @db.Text
+  status    String   @default("pending") // pending | sent | failed
+  attempts  Int      @default(0)
+  createdAt DateTime @default(now())
+  sentAt    DateTime?
+
+  @@index([status, createdAt])
+  @@index([userId])
+}
+
+model Summary {
+  id          String   @id @default(cuid())
+  groupId     String
+  group       Group    @relation(fields: [groupId], references: [id])
+  userId      String?
+  user        user?    @relation(fields: [userId], references: [id])
+  content     String   @db.Text
+  mentionFrom DateTime
+  mentionTo   DateTime
+  mentionIds  String   @db.Text
+  createdAt   DateTime @default(now())
+
+  @@index([groupId, createdAt])
+  @@index([userId, createdAt])
+}
+
+// ─── Multi-Tenancy (Projects) ─────────────────────────────────────────────────
+
+model ProjectStatus {
+  id        String   @id @default(cuid())
+  projectId String
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  slug      String
+  label     String
+  color     String   @default("#6b7280")
+  order     Int      @default(0)
+  isDone    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@unique([projectId, slug])
+  @@index([projectId, order])
+}
+
+model Project {
+  id          String          @id @default(cuid())
+  name        String
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  // Project context for prompt generation
+  prd          String?  @db.Text          // manual PRD / project context
+  techStack    String?                    // short free-text, e.g. "Next.js, Prisma"
+  conventions  String?  @db.Text          // coding conventions / guardrails
+
+  // GitHub integration (for codebase context in generated prompts)
+  githubRepo   String?                    // "owner/repo"
+  githubBranch String?  @default("main")
+  githubToken  String?  @db.Text          // personal access token (repo scope)
+
+  // Customizable bot replies to the group. Nullable → fall back to defaults
+  // in app/lib/messages.ts. Templates use {placeholders} like {groupName}.
+  claimMessage    String? @db.Text
+  taskDoneMessage String? @db.Text
+
+  // When true, the bot never sends anything into this project's groups —
+  // claim confirmations, task/reminder notifications, and slash-command
+  // replies are all suppressed (queued messages are skipped, not sent).
+  silentMode      Boolean @default(false)
+
+  // Project brief — collaborative notes for all members
+  brief            String?   @db.Text
+  briefUpdatedAt   DateTime?
+  briefUpdaterName String?
+
+  members     ProjectMember[]
+  tasks       Task[]
+  groups      ProjectGroup[]
+  repos       ProjectRepo[]
+  statuses    ProjectStatus[]
+}
+
+model ProjectMember {
+  id            String       @id @default(cuid())
+  projectId     String
+  userId        String
+  role          String       @default("member") // admin | member
+
+  // Per-member default repo from the project's repo pool. Member picks their own.
+  // Nullable: a member without a default falls back to the first project repo at prompt time.
+  defaultRepoId String?
+  defaultRepo   ProjectRepo? @relation("MemberDefaultRepo", fields: [defaultRepoId], references: [id], onDelete: SetNull)
+
+  project       Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user          user         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, userId])
+  @@index([defaultRepoId])
+}
+
+// Pool of GitHub repos linked to a project. Admin manages adds/removes.
+// Members pick one as their `defaultRepo` (above). Prompt generation uses
+// the member's default repo, falling back to the first repo in the pool.
+model ProjectRepo {
+  id          String          @id @default(cuid())
+  projectId   String
+  project     Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  fullName    String          // "owner/repo"
+  branch      String          @default("main")
+  addedById   String?         // user.id of admin who added it (audit)
+  createdAt   DateTime        @default(now())
+
+  defaultForMembers ProjectMember[] @relation("MemberDefaultRepo")
+
+  @@unique([projectId, fullName])
+  @@index([projectId])
+}
+
+model ProjectGroup {
+  id        String  @id @default(cuid())
+  projectId String
+  groupId   String
+
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  group     Group   @relation(fields: [groupId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, groupId])
+}
+
+// ─── MCP API Keys ─────────────────────────────────────────────────────────────
+
+model ApiKey {
+  id          String    @id @default(cuid())
+  userId      String
+  user        user      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name        String
+  keyPrefix   String    // first 8 chars of raw key, for fast lookup
+  keyHash     String    @unique // SHA-256 hex of raw key
+  scopes      String    @default("read") // "read" | "read,write"
+  lastUsedAt  DateTime?
+  expiresAt   DateTime?
+  createdAt   DateTime  @default(now())
+
+  @@index([userId])
+  @@index([keyPrefix])
+}
+
+// ─── AI Chat ─────────────────────────────────────────────────────────────────
+
+model AiChatSession {
+  id        String          @id @default(cuid())
+  userId    String
+  user      user            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title     String          @default("New chat")
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+  messages  AiChatMessage[]
+
+  @@index([userId, createdAt])
+}
+
+model AiChatMessage {
+  id        String        @id @default(cuid())
+  sessionId String
+  session   AiChatSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  role      String        // user | assistant | tool
+  content   String        @db.Text
+  toolCalls String?       @db.Text // JSON array of tool calls
+  createdAt DateTime      @default(now())
+
+  @@index([sessionId, createdAt])
+}
+
+// ─── Google Calendar integration ─────────────────────────────────────────────
+
+model GoogleCalendarToken {
+  id           String   @id @default(cuid())
+  userId       String   @unique
+  user         user     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken  String   @db.Text
+  refreshToken String   @db.Text
+  expiresAt    DateTime
+  calendarId   String   @default("primary")
+  syncEnabled  Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+// ─── Group claim codes ────────────────────────────────────────────────────────
+// A user proves membership of a WhatsApp group by posting their one-time code
+// inside that group. The shared listener sees it and links the group to them.
+model GroupClaim {
+  id        String    @id @default(cuid())
+  code      String    @unique // e.g. "MENTIO-7F3KQ9"
+  userId    String
+  user      user      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  projectId String // group is linked into this project on claim
+  status    String    @default("pending") // pending | claimed | expired
+  groupId   String? // set once claimed
+  groupName String? // captured at claim time
+  createdAt DateTime  @default(now())
+  claimedAt DateTime?
+  expiresAt DateTime
+
+  @@index([status])
+  @@index([userId])
+}
+
+// ─── Second Brain ─────────────────────────────────────────────────────────────
+
+model Space {
+  id          String   @id @default(cuid())
+  userId      String
+  user        user     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name        String
+  description String?
+  icon        String?  // emoji
+  color       String?  // hex color
+  isInbox     Boolean  @default(false)
+  isArchived  Boolean  @default(false)
+  order       Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  notes       Note[]
+
+  @@unique([userId, name])
+  @@index([userId, isArchived])
+}
+
+model Note {
+  id              String   @id @default(cuid())
+  userId          String
+  user            user     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  spaceId         String
+  space           Space    @relation(fields: [spaceId], references: [id], onDelete: Cascade)
+  title           String   @default("Untitled")
+  content         String   @db.Text
+  sourceType      String   @default("manual") // manual | web_clip | wa_mention | wa_dump
+  sourceUrl       String?
+  sourceWaMsgId   String?  // WA message ID for dump notes — used for emoji-reaction-to-task
+  sourceMentionId String?  @unique
+  sourceMention   Mention? @relation("MentionSavedNote", fields: [sourceMentionId], references: [id], onDelete: SetNull)
+  isPinned        Boolean  @default(false)
+  isNew           Boolean  @default(false)
+  imageUrls       String[] @default([])
+  isDaily         Boolean  @default(false)
+  dailyDate       DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  tags            NoteTag[]
+  embeddings      NoteEmbedding[]
+  linksFrom       NoteLink[] @relation("NoteLinksFrom")
+  linksTo         NoteLink[] @relation("NoteLinksTo")
+  tasks           Task[]     @relation("NoteToTasks")
+
+  @@index([userId, spaceId])
+  @@index([userId, createdAt])
+  @@index([userId, isDaily, dailyDate])
+  @@index([sourceMentionId])
+  @@index([userId, sourceWaMsgId])
+}
+
+model Tag {
+  id          String       @id @default(cuid())
+  userId      String
+  user        user         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name        String
+  color       String?
+  createdAt   DateTime     @default(now())
+  noteTags    NoteTag[]
+  mentionTags MentionTag[]
+  taskTags    TaskTag[]
+
+  @@unique([userId, name])
+  @@index([userId])
+}
+
+model NoteTag {
+  noteId     String
+  tagId      String
+  note       Note    @relation(fields: [noteId], references: [id], onDelete: Cascade)
+  tag        Tag     @relation(fields: [tagId], references: [id], onDelete: Cascade)
+  confidence Float   @default(1.0)
+  source     String  @default("manual") // "manual" | "ai"
+
+  @@id([noteId, tagId])
+}
+
+model MentionTag {
+  mentionId  String
+  tagId      String
+  mention    Mention @relation(fields: [mentionId], references: [id], onDelete: Cascade)
+  tag        Tag     @relation(fields: [tagId], references: [id], onDelete: Cascade)
+  confidence Float   @default(1.0)
+  source     String  @default("manual") // "manual" | "ai"
+
+  @@id([mentionId, tagId])
+}
+
+model TaskTag {
+  taskId String
+  tagId  String
+  task   Task   @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  tag    Tag    @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([taskId, tagId])
+}
+
+
+// ─── Semantic Search Embeddings ───────────────────────────────────────────────
+
+model NoteEmbedding {
+  id        String   @id @default(cuid())
+  noteId    String
+  note      Note     @relation(fields: [noteId], references: [id], onDelete: Cascade)
+  chunkIdx  Int      @default(0)
+  chunkText String   @db.Text
+  vector    Float[]
+  model     String   @default("text-embedding-3-small")
+  createdAt DateTime @default(now())
+
+  @@index([noteId])
+}
+
+// ─── AI Manage ────────────────────────────────────────────────────────────────
+
+model Digest {
+  id        String    @id @default(cuid())
+  userId    String
+  user      user      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      String    // "daily" | "weekly"
+  content   String    @db.Text
+  period    String    // "2026-06-10" for daily, "2026-W24" for weekly
+  readAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@unique([userId, type, period])
+  @@index([userId, type, createdAt])
+}
+
+model AutoOrganizeJob {
+  id          String    @id @default(cuid())
+  userId      String
+  itemType    String    // "note" | "mention"
+  itemId      String
+  status      String    @default("pending") // pending | done | failed
+  result      String?   @db.Text
+  attempts    Int       @default(0)
+  createdAt   DateTime  @default(now())
+  processedAt DateTime?
+
+  @@unique([itemType, itemId])
+  @@index([status, createdAt])
+}
+
+// Tracks Telegram notifications sent to avoid duplicates
+model TelegramNotification {
+  id     String   @id @default(cuid())
+  userId String
+  type   String   // "task_due" | "task_assigned" | "digest" | "weekly"
+  refId  String   // taskId or digestId
+  sentAt DateTime @default(now())
+
+  @@unique([userId, type, refId])
+  @@index([userId])
+}
+
+// ─── Todo Notification Settings ──────────────────────────────────────────────
+
+model TodoNotifSettings {
+  id                 String    @id @default(cuid())
+  userId             String    @unique
+  user               user      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Daily summary at a fixed time
+  dailyEnabled       Boolean   @default(false)
+  dailyTime          String    @default("08:00") // "HH:MM" in timezone below
+  timezone           String    @default("Asia/Jakarta")
+
+  // Periodic reminder every N hours (e.g. every 4h)
+  periodicEnabled    Boolean   @default(false)
+  periodicHours      Int       @default(4)
+  lastPeriodicAt     DateTime?
+
+  // Deadline reminders: notify N days before due (comma-separated, e.g. "1,3,7")
+  deadlineEnabled    Boolean   @default(true)
+  deadlineDays       String    @default("1,3")
+
+  // Overdue notification once a day
+  overdueEnabled     Boolean   @default(true)
+
+  updatedAt          DateTime  @updatedAt
+}
+
+// ─── LMS Integration ─────────────────────────────────────────────────────────
+
+model LmsConnection {
+  id          String    @id @default(cuid())
+  userId      String    @unique
+  user        user      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  icalUrl     String    @db.Text
+  provider    String    @default("moodle") // for future providers
+  lastSyncAt  DateTime?
+  lastSyncCount Int?    // tasks imported in last sync
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([userId])
+}
+
+model NoteLink {
+  id        String   @id @default(cuid())
+  userId    String
+  sourceId  String
+  source    Note     @relation("NoteLinksFrom", fields: [sourceId], references: [id], onDelete: Cascade)
+  targetId  String
+  target    Note     @relation("NoteLinksTo", fields: [targetId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([sourceId, targetId])
+  @@index([userId, targetId])
+  @@index([userId, sourceId])
+}
+
+// ─── Canvas ───────────────────────────────────────────────────────────────────
+// Room-based: each (entityType, entityId) pair is one shared canvas.
+// scratch → entityId = userId (personal)
+// note/board/project → entityId = resource ID (shared by all collaborators)
+
+model Canvas {
+  id         String   @id @default(cuid())
+  entityType String   // "scratch" | "note" | "board" | "project" | "user"
+  entityId   String   // userId (scratch) | noteId | projectId | canvasId
+  snapshot   Json?    // tldraw TLStore snapshot
+  // User-created canvases (entityType = "user")
+  name       String?  // display name, only for entityType="user"
+  ownerId    String?  // user who created it
+  owner      user?    @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  shareToken String?  @unique // set to enable link sharing
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([entityType, entityId])
+  @@index([entityType])
+  @@index([ownerId])
+}
