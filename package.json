@@ -23,6 +23,7 @@
     "build": "next build",
     "start": "next start",
     "db:push": "prisma db push",
+    "db:seed-demo": "tsx prisma/seed-demo.ts",
     "db:studio": "prisma studio",
     "postinstall": "[ \"$npm_config_global\" = \"true\" ] || prisma generate",
     "sessions": "node src/session-manager.js",
