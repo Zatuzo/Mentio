@@ -214,6 +214,10 @@ model Mention {
   mentionedJid String?
   timestamp    DateTime
   processed    Boolean  @default(false)
+  // Auto-tagged by watsonx.ai (app/lib/watsonx.ts / src/watsonx.js) right
+  // after the mention is saved — one of: request | question | urgent | info | other.
+  // Null until classified (feature not configured, or classification failed).
+  category     String?
   createdAt    DateTime @default(now())
   tasks        Task[]
   savedAsNoteId String?
