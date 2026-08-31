@@ -2,6 +2,7 @@ const OpenAI = require('openai');
 const cron = require('node-cron');
 const { prisma } = require('./db');
 const { DEEPSEEK_API_KEY, DEEPSEEK_MODEL, SUMMARY_CRON } = require('./config');
+const { decryptText } = require('./crypto');
 
 function defaultTaskDates() {
   const start = new Date(); start.setHours(0,0,0,0);
@@ -27,11 +28,15 @@ async function summarizeGroup(groupId, userId, opts = {}) {
   const mentionWhere = { groupId, processed: false };
   if (userId) mentionWhere.userId = userId;
 
-  const mentions = await prisma.mention.findMany({
+  const mentionsRaw = await prisma.mention.findMany({
     where: mentionWhere,
     orderBy: { timestamp: 'asc' },
   });
-  if (mentions.length === 0) return null;
+  if (mentionsRaw.length === 0) return null;
+
+  // Decrypt chat text read back from the DB (see src/crypto.js) before it's
+  // used anywhere — the AI prompt, the stored summary, etc.
+  const mentions = mentionsRaw.map((m) => ({ ...m, text: decryptText(m.text) }));
 
   const group = await prisma.group.findUnique({ where: { id: groupId } });
 
