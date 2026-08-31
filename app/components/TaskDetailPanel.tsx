@@ -598,3 +598,40 @@ export function TaskDetailPanel({ task, groups, statuses, members, onClose, onUp
     </Sheet>
   );
 }
+
+// ── AgentLogLine ──────────────────────────────────────────────────────────────
+
+const LOG_ICON: Record<string, React.ReactNode> = {
+  read:  <FileText className="h-3 w-3 text-blue-400/70 shrink-0 mt-0.5" />,
+  write: <FilePen className="h-3 w-3 text-amber-400/70 shrink-0 mt-0.5" />,
+  think: <Cpu className="h-3 w-3 text-violet-400/70 shrink-0 mt-0.5" />,
+  info:  <Info className="h-3 w-3 text-muted-foreground/50 shrink-0 mt-0.5" />,
+  done:  <CheckCircle2 className="h-3 w-3 text-emerald-400/70 shrink-0 mt-0.5" />,
+  error: <AlertCircle className="h-3 w-3 text-destructive/70 shrink-0 mt-0.5" />,
+};
+
+const LOG_COLOR: Record<string, string> = {
+  read:  'text-blue-300/80',
+  write: 'text-amber-300/80',
+  think: 'text-violet-300/70 italic',
+  info:  'text-muted-foreground',
+  done:  'text-emerald-300/80',
+  error: 'text-destructive',
+};
+
+function AgentLogLine({ entry, isLast }: { entry: { time: string; type: string; message: string }; isLast: boolean }) {
+  const icon = LOG_ICON[entry.type] ?? LOG_ICON.info;
+  const color = LOG_COLOR[entry.type] ?? 'text-muted-foreground';
+  const time = new Date(entry.time).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+
+  return (
+    <div className={`flex items-start gap-1.5 text-[11px] leading-relaxed ${isLast ? 'opacity-100' : 'opacity-70'}`}>
+      {icon}
+      <span className="text-muted-foreground/50 shrink-0 tabular-nums">{time}</span>
+      <span className={color}>{entry.message}</span>
+      {isLast && entry.type !== 'done' && entry.type !== 'error' && (
+        <span className="inline-block w-1.5 h-3 bg-muted-foreground/40 animate-pulse ml-0.5 rounded-sm" />
+      )}
+    </div>
+  );
+}
