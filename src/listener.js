@@ -78,6 +78,7 @@ const { dispatch: dispatchCommand, parseCommand } = require('./commands');
 const { classifyDumpMessage } = require('./dump-classifier');
 const { bufferMessage } = require('./group-chat-buffer');
 const { shouldRecordMention } = require('./listener-policy');
+const { encryptText } = require('./crypto');
 
 // Emoji yang memicu pembuatan task dari pesan yang di-react.
 const TASK_EMOJI = process.env.TASK_EMOJI || '📌';
@@ -976,7 +977,7 @@ async function start() {
           const userId = w.userId;
 
           // One Mention per (message, user) — each watcher gets their own row.
-          await prisma.mention.upsert({
+          const savedMention = await prisma.mention.upsert({
             where: { messageId_userId: { messageId: msg.key.id, userId } },
             update: {},
             create: {
@@ -985,7 +986,7 @@ async function start() {
               userId,
               senderJid,
               senderName,
-              text,
+              text: encryptText(text), // chat content is encrypted at rest — see src/crypto.js
               mentionedJid: w.jid,
               timestamp: ts,
               ...(mentionImageUrl ? { imageUrls: [mentionImageUrl] } : {}),
