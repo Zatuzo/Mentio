@@ -53,6 +53,7 @@ interface AnalyticsData {
     ageDays: number;
   }[];
   byMember: MemberStat[];
+  mentionsByCategory: { category: string; count: number }[];
   groups: { id: string; name: string }[];
   range: number;
   scope: string;
@@ -141,7 +142,7 @@ function OverviewCard({
 }
 
 function PersonalView({ data, range }: { data: AnalyticsData; range: number }) {
-  const { overview, dailyVolume, byGroup, byPriority, openTasks } = data;
+  const { overview, dailyVolume, byGroup, byPriority, openTasks, mentionsByCategory } = data;
 
   const formattedVolume = dailyVolume.map((d) => ({ ...d, label: formatDate(d.date, range) }));
   const formattedGroups = byGroup.map((g) => ({
@@ -267,6 +268,25 @@ function PersonalView({ data, range }: { data: AnalyticsData; range: number }) {
           </CardContent>
         </Card>
       </div>
+
+      {/* Mentions by watsonx category — omitted entirely if the integration isn't configured */}
+      {mentionsByCategory.length > 0 && (
+        <Card className="bg-card/60 border-border/60">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-semibold">Mention berdasarkan Kategori</CardTitle>
+            <CardDescription className="text-xs">Klasifikasi otomatis dari IBM watsonx.ai</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex flex-wrap gap-2">
+              {mentionsByCategory.map((c) => (
+                <Badge key={c.category} variant="outline" className="text-xs font-normal capitalize">
+                  {c.category}: {c.count}
+                </Badge>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Oldest open tasks */}
       <Card className="bg-card/60 border-border/60">
