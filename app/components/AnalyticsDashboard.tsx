@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 import {
   ChartContainer,
   ChartTooltip,
@@ -17,7 +18,7 @@ import {
   YAxis,
   CartesianGrid,
 } from 'recharts';
-import { CheckCircle2, TrendingUp, Clock, MessageSquare, Loader2, AlertCircle, Users } from 'lucide-react';
+import { CheckCircle2, TrendingUp, Clock, MessageSquare, Loader2, AlertCircle, Users, Download } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 
 interface MemberStat {
@@ -290,9 +291,17 @@ function PersonalView({ data, range }: { data: AnalyticsData; range: number }) {
 
       {/* Oldest open tasks */}
       <Card className="bg-card/60 border-border/60">
-        <CardHeader className="pb-2">
-          <CardTitle className="text-sm font-semibold">Tasks Terlama Belum Selesai</CardTitle>
-          <CardDescription className="text-xs">Top 10 open tasks diurutkan dari paling lama dibuat</CardDescription>
+        <CardHeader className="pb-2 flex-row items-start justify-between">
+          <div>
+            <CardTitle className="text-sm font-semibold">Tasks Terlama Belum Selesai</CardTitle>
+            <CardDescription className="text-xs">Top 10 open tasks diurutkan dari paling lama dibuat</CardDescription>
+          </div>
+          {openTasks.length > 0 && (
+            <Button size="sm" variant="outline" className="h-7 text-xs gap-1.5" onClick={() => downloadOpenTasksCsv(openTasks)}>
+              <Download className="h-3 w-3" />
+              Export CSV
+            </Button>
+          )}
         </CardHeader>
         <CardContent>
           {openTasks.length === 0 ? (
