@@ -1,5 +1,6 @@
 import { prisma } from '@/app/lib/db';
 import { getSession } from '@/app/lib/session';
+import { decryptText } from '@/app/lib/crypto';
 import { SummarizeButton } from '@/app/components/SummarizeButton';
 import { MarkdownContent } from '@/app/components/MarkdownContent';
 import { EmptyState } from '@/app/components/EmptyState';
@@ -18,7 +19,7 @@ export default async function GroupPage({ params }: { params: { id: string } }) 
   const group = await prisma.group.findUnique({ where: { id } });
   if (!group) return <p>Group not found.</p>;
 
-  const [mentions, summaries] = await Promise.all([
+  const [mentionsRaw, summaries] = await Promise.all([
     prisma.mention.findMany({
       where: { groupId: id, userId },
       orderBy: { timestamp: 'desc' },
@@ -30,6 +31,7 @@ export default async function GroupPage({ params }: { params: { id: string } }) 
       take: 20,
     }),
   ]);
+  const mentions = mentionsRaw.map((m) => ({ ...m, text: decryptText(m.text) }));
 
   return (
     <div className="space-y-8">
