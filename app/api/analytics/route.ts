@@ -75,6 +75,23 @@ export async function GET(req: NextRequest) {
 
     const groups = projectGroupsRaw.map((pg) => ({ id: pg.group.id, name: pg.group.name }));
 
+    // ── Mentions by watsonx category (skipped entirely if the integration
+    // was never configured — every row would just be null) ─────────────────
+    const mentionCategoryCounts = await prisma.mention.groupBy({
+      by: ['category'],
+      where: {
+        userId: session.user.id,
+        timestamp: { gte: since },
+        group: { projectGroups: { some: { projectId } } },
+        category: { not: null },
+      },
+      _count: true,
+    });
+    const mentionsByCategory = mentionCategoryCounts.map((c) => ({
+      category: c.category as string,
+      count: c._count,
+    }));
+
     // ── Overview ─────────────────────────────────────────────────────────────
 
     const totalTasks = allTasks.length;
@@ -217,6 +234,7 @@ export async function GET(req: NextRequest) {
       byPriority,
       openTasks,
       byMember,
+      mentionsByCategory,
       groups,
       range,
       scope,
