@@ -519,6 +519,28 @@ function TeamView({ data, range }: { data: AnalyticsData; range: number }) {
   );
 }
 
+function downloadOpenTasksCsv(openTasks: AnalyticsData['openTasks']) {
+  const header = ['Title', 'Status', 'Priority', 'Group', 'Age (days)', 'Due date'];
+  const escape = (v: string) => `"${v.replace(/"/g, '""')}"`;
+  const rows = openTasks.map((t) => [
+    t.title,
+    t.status,
+    t.priority,
+    t.group?.name ?? '',
+    String(t.ageDays),
+    t.dueDate ?? '',
+  ]);
+
+  const csv = [header, ...rows].map((row) => row.map(escape).join(',')).join('\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `open-tasks-${new Date().toISOString().slice(0, 10)}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
 export function AnalyticsDashboard({ projectId }: { projectId: string }) {
   const [range, setRange] = useState<7 | 30>(7);
   const [scope, setScope] = useState<'personal' | 'team'>('personal');
