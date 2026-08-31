@@ -25,6 +25,7 @@ export async function GET(req: NextRequest) {
     mentions.map((m) => ({
       id: m.id,
       text: decryptText(m.text),
+      category: m.category,
       senderName: m.senderName,
       senderJid: m.senderJid,
       mentionedJid: m.mentionedJid,
