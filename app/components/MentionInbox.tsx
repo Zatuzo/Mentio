@@ -30,6 +30,16 @@ interface Props {
   projectId: string | null;
 }
 
+// Mirrors src/watsonx.js CATEGORIES — a mention tagged by the watsonx
+// classifier (see the listener) gets a small colored label here.
+const CATEGORY_CONFIG: Record<string, { label: string; className: string }> = {
+  urgent:   { label: 'Urgent',   className: 'bg-destructive/15 text-destructive' },
+  request:  { label: 'Request',  className: 'bg-blue-500/15 text-blue-400' },
+  question: { label: 'Question', className: 'bg-violet-500/15 text-violet-400' },
+  info:     { label: 'Info',     className: 'bg-muted text-muted-foreground' },
+  other:    { label: 'Other',    className: 'bg-muted text-muted-foreground' },
+};
+
 function timeAgo(ts: string) {
   const diff = Date.now() - new Date(ts).getTime();
   const mins = Math.floor(diff / 60000);
@@ -404,6 +414,11 @@ export function MentionInbox({ initialMentions, groups, projectId }: Props) {
                       <Badge variant="outline" className="text-xs h-5 px-1.5 font-normal bg-muted/50 shrink-0">
                         {mention.group.name}
                       </Badge>
+                      {mention.category && CATEGORY_CONFIG[mention.category] && (
+                        <Badge className={`text-xs h-5 px-1.5 font-normal shrink-0 border-0 ${CATEGORY_CONFIG[mention.category].className}`}>
+                          {CATEGORY_CONFIG[mention.category].label}
+                        </Badge>
+                      )}
                       <span className="text-xs font-medium text-foreground">
                         {mention.senderName || mention.senderJid.replace(/@.+$/, '')}
                       </span>
