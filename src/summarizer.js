@@ -309,4 +309,10 @@ if (require.main === module) {
   });
 }
 
-module.exports = { summarizeGroup, runOnce };
+module.exports = {
+  summarizeGroup,
+  runOnce,
+  // Exported for unit testing — pure functions, no DB/network access.
+  resolveAssignee,
+  shouldCreateTask,
+};
