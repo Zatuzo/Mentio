@@ -153,12 +153,73 @@ export async function GET(req: NextRequest) {
         ageDays: Math.floor((Date.now() - t.createdAt.getTime()) / 86400000),
       }));
 
+    // ── By member (team scope only) ───────────────────────────────────────────
+
+    type MemberStat = {
+      userId: string; name: string; image: string | null;
+      todo: number; in_progress: number; done: number;
+      completedInRange: number; completionRate: number; avgCycleTime: number | null;
+    };
+    let byMember: MemberStat[] = [];
+
+    if (scope === 'team') {
+      const projectMembers = await prisma.projectMember.findMany({
+        where: { projectId },
+        include: { user: { select: { id: true, name: true, image: true } } },
+      });
+
+      const mmap: Record<string, {
+        userId: string; name: string; image: string | null;
+        todo: number; in_progress: number; done: number;
+        completedInRange: number; cycleTimes: number[];
+      }> = {};
+
+      projectMembers.forEach((m) => {
+        mmap[m.userId] = {
+          userId: m.userId, name: m.user.name, image: m.user.image ?? null,
+          todo: 0, in_progress: 0, done: 0, completedInRange: 0, cycleTimes: [],
+        };
+      });
+
+      allTasks.forEach((t) => {
+        const entry = mmap[t.userId];
+        if (!entry) return;
+        if (t.status === 'todo') entry.todo++;
+        else if (t.status === 'in_progress') entry.in_progress++;
+        else if (t.status === 'done') entry.done++;
+        if (t.completedAt && t.completedAt >= since) {
+          entry.completedInRange++;
+          const ct = (t.completedAt.getTime() - t.createdAt.getTime()) / 86400000;
+          if (ct >= 0) entry.cycleTimes.push(ct);
+        }
+      });
+
+      byMember = Object.values(mmap).map((m) => {
+        const total = m.todo + m.in_progress + m.done;
+        const avgCt =
+          m.cycleTimes.length > 0
+            ? Math.round((m.cycleTimes.reduce((a, b) => a + b, 0) / m.cycleTimes.length) * 10) / 10
+            : null;
+        return {
+          userId: m.userId, name: m.name, image: m.image,
+          todo: m.todo, in_progress: m.in_progress, done: m.done,
+          completedInRange: m.completedInRange,
+          completionRate: total > 0 ? Math.round((m.done / total) * 100) : 0,
+          avgCycleTime: avgCt,
+        };
+      }).sort((a, b) => b.completedInRange - a.completedInRange || b.done - a.done);
+    }
+
     return NextResponse.json({
       overview: { completedInRange: completedInRange.length, completionRate, avgCycleTime, mentionCount: myMentions },
       dailyVolume,
       byGroup,
       byPriority,
       openTasks,
+      byMember,
+      groups,
+      range,
+      scope,
     });
   } catch (err) {
     console.error('[api] GET /api/analytics error:', err);
