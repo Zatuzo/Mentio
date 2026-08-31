@@ -8,6 +8,7 @@ export type MentionCategory = (typeof CATEGORIES)[number];
 
 const IAM_TOKEN_URL = 'https://iam.cloud.ibm.com/identity/token';
 const WATSONX_API_VERSION = '2024-05-01';
+const REQUEST_TIMEOUT_MS = 8_000; // classification is best-effort — don't let a slow IBM response hang around
 
 let cachedToken: { value: string; expiresAt: number } | null = null;
 
@@ -26,6 +27,7 @@ async function getIamToken(): Promise<string | null> {
       grant_type: 'urn:ibm:params:oauth:grant-type:apikey',
       apikey: apiKey,
     }),
+    signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
   });
   if (!res.ok) throw new Error(`watsonx IAM token request failed: HTTP ${res.status}`);
 
@@ -59,6 +61,7 @@ Message: "${text}"`;
         input: prompt,
         parameters: { decoding_method: 'greedy', max_new_tokens: 5, temperature: 0 },
       }),
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
     });
     if (!res.ok) {
       console.error(`[watsonx] classify request failed: HTTP ${res.status}`);
