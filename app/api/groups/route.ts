@@ -27,7 +27,7 @@ export async function GET() {
 export async function PATCH(req: Request) {
   const user = await getUser();
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  const { id, enabled, autoSummarize, fullChatSummary } = await req.json();
+  const { id, enabled, autoSummarize, fullChatSummary, assignTeammates } = await req.json();
   if (!id) return NextResponse.json({ error: 'id required' }, { status: 400 });
 
   const existing = await prisma.userGroup.findUnique({
@@ -44,6 +44,7 @@ export async function PATCH(req: Request) {
   if (enabled !== undefined) data.enabled = !!enabled;
   if (autoSummarize !== undefined) data.autoSummarize = !!autoSummarize;
   if (fullChatSummary !== undefined) data.fullChatSummary = !!fullChatSummary;
+  if (assignTeammates !== undefined) data.assignTeammates = !!assignTeammates;
 
   const ug = await prisma.userGroup.update({
     where: { userId_groupId: { userId: user.id, groupId: id } },
