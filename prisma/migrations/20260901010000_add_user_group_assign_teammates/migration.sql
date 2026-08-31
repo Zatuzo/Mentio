@@ -1,0 +1,1 @@
+ALTER TABLE "UserGroup" ADD COLUMN "assignTeammates" BOOLEAN NOT NULL DEFAULT false;

@@ -185,6 +185,11 @@ model UserGroup {
   autoSummarize        Boolean   @default(false)
   lastAutoSummarizedAt DateTime?
   fullChatSummary      Boolean   @default(false)
+  // Opt-in: let the summarizer assign an AI-extracted task from this group to
+  // another project member instead of always assigning it to this user. Off
+  // by default so a teammate never gets surprise tasks from a group they
+  // never chose to be tracked in.
+  assignTeammates      Boolean   @default(false)
 
   @@unique([userId, groupId])
 }
