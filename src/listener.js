@@ -77,6 +77,7 @@ const { DEFAULT_CLAIM_MESSAGE, renderTemplate } = require('./messages');
 const { dispatch: dispatchCommand, parseCommand } = require('./commands');
 const { classifyDumpMessage } = require('./dump-classifier');
 const { bufferMessage } = require('./group-chat-buffer');
+const { shouldRecordMention } = require('./listener-policy');
 
 // Emoji yang memicu pembuatan task dari pesan yang di-react.
 const TASK_EMOJI = process.env.TASK_EMOJI || '📌';
@@ -956,6 +957,14 @@ async function start() {
         const ts = msg.messageTimestamp
           ? new Date(Number(msg.messageTimestamp) * 1000)
           : new Date();
+
+        // Behaviour rule: drop mentions past the per-(group, sender) rate
+        // limit instead of persisting every single one — protects the feed
+        // (and the AI summary budget) from a noisy sender or forwarded chain.
+        if (!shouldRecordMention(remoteJid, senderJid)) {
+          console.log(`[listener] rate-limited mention from ${senderJid} in ${group.name}`);
+          continue;
+        }
 
         // Download image once (shared across all matched watchers for this message)
         const mentionImageUrlPromise = msg.message?.imageMessage
