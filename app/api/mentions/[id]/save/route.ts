@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSession } from '@/app/lib/session';
 import { prisma } from '@/app/lib/db';
+import { decryptText } from '@/app/lib/crypto';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -15,6 +16,8 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   });
   if (!mention || mention.userId !== session.user.id)
     return NextResponse.json({ error: 'Not found' }, { status: 404 });
+
+  const mentionText = decryptText(mention.text) ?? '';
 
   // Prevent duplicate saves
   const existing = await prisma.note.findUnique({ where: { sourceMentionId: params.id } });
@@ -42,7 +45,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     `**Group:** ${mention.group.name}`,
     `**Date:** ${date}`,
     '',
-    mention.text,
+    mentionText,
     ...(additionalContext ? ['', '---', '', additionalContext] : []),
   ].join('\n');
 
@@ -50,7 +53,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     data: {
       userId: session.user.id,
       spaceId,
-      title: mention.text.slice(0, 60).trim() || 'WA Mention',
+      title: mentionText.slice(0, 60).trim() || 'WA Mention',
       content,
       sourceType: 'wa_mention',
       sourceMentionId: mention.id,
