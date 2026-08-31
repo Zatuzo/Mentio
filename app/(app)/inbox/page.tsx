@@ -48,6 +48,7 @@ export default async function InboxPage() {
   const serialized = mentions.map((m) => ({
     id: m.id,
     text: decryptText(m.text),
+    category: m.category,
     senderName: m.senderName,
     senderJid: m.senderJid,
     mentionedJid: m.mentionedJid,
