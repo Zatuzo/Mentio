@@ -14,6 +14,98 @@ const client = DEEPSEEK_API_KEY
   ? new OpenAI({ apiKey: DEEPSEEK_API_KEY, baseURL: 'https://api.deepseek.com' })
   : null;
 
+// Resolve which project a group's extracted tasks belong to.
+// Precedence: explicit opts.projectId (verified) > user's oldest project
+// that owns this group (deterministic fallback).
+async function resolveProjectId(groupId, userId, opts = {}) {
+  if (!userId) return null;
+  if (opts.projectId) {
+    const allowed = await prisma.projectGroup.findFirst({
+      where: {
+        projectId: opts.projectId,
+        groupId,
+        project: { members: { some: { userId } } },
+      },
+    });
+    if (allowed) return opts.projectId;
+  }
+  const pg = await prisma.projectGroup.findFirst({
+    where: { groupId, project: { members: { some: { userId } } } },
+    orderBy: { project: { createdAt: 'asc' } },
+  });
+  return pg?.projectId ?? null;
+}
+
+// Member list text (for the AI prompt) + valid id set (to validate the AI's
+// suggested assignee before trusting it) for a project.
+async function projectMemberContext(projectId) {
+  if (!projectId) return { text: '- (no team members)', ids: new Set() };
+  const links = await prisma.projectMember.findMany({
+    where: { projectId },
+    include: { user: { select: { id: true, name: true } } },
+  });
+  const ids = new Set(links.map((l) => l.user.id));
+  const text = links.length > 0
+    ? links.map((l) => `- ${l.user.name} (id: ${l.user.id})`).join('\n')
+    : '- (no team members)';
+  return { text, ids };
+}
+
+// Whether AI-extracted tasks for (userId, groupId) may be assigned to a
+// teammate instead of just the user themselves — opt-in, default off, so a
+// teammate's dashboard never gets a task from a group they never chose to
+// be tracked in (UserGroup.assignTeammates).
+async function canAssignTeammates(userId, groupId) {
+  if (!userId) return false;
+  const ug = await prisma.userGroup.findUnique({
+    where: { userId_groupId: { userId, groupId } },
+    select: { assignTeammates: true },
+  });
+  return ug?.assignTeammates ?? false;
+}
+
+// Validate + gate the AI's suggested assignee: must be a real project member,
+// and assigning to someone other than the requesting user requires opt-in.
+function resolveAssignee(suggestedId, memberIds, userId, allowTeammates) {
+  if (!suggestedId || !memberIds.has(suggestedId)) return null;
+  if (suggestedId === userId) return suggestedId;
+  return allowTeammates ? suggestedId : null;
+}
+
+// Whether a task should be created at all. `directedAt` is the AI's read of
+// who the request is actually addressed to (by name) — null means general/
+// unaddressed/for the watching user themselves. If it clearly names a
+// DIFFERENT person and assignTeammates is off, skip creating the task
+// entirely rather than putting an orphaned task on this user's board for
+// work that isn't theirs.
+function shouldCreateTask(t, allowTeammates) {
+  if (!t.directedAt) return true;
+  return allowTeammates;
+}
+
+// Raw WA message text encodes @mentions as bare phone digits (e.g.
+// "@6282130304142 tolong...") — WhatsApp clients resolve that to a contact
+// name for display, but the text Baileys captures never is. Without
+// resolving it, the AI only ever sees a phone number and can't tell a task
+// is directed at a specific person by name. Resolve using GroupMember
+// (synced participant list for the group, covers everyone — not just
+// Mentio users) so `directedAt` reasoning actually has a name to work with.
+const MENTION_TOKEN_RE = /@(\d{8,15})/g;
+async function buildMentionResolver(texts, groupId) {
+  const digits = new Set();
+  for (const t of texts) {
+    for (const m of t.matchAll(MENTION_TOKEN_RE)) digits.add(m[1]);
+  }
+  if (digits.size === 0) return (t) => t;
+  const members = await prisma.groupMember.findMany({
+    where: { groupId, phone: { in: [...digits] } },
+    select: { phone: true, name: true },
+  });
+  const nameByPhone = new Map(members.filter((m) => m.name).map((m) => [m.phone, m.name]));
+  if (nameByPhone.size === 0) return (t) => t;
+  return (t) => t.replace(MENTION_TOKEN_RE, (full, d) => (nameByPhone.get(d) ? `@${nameByPhone.get(d)}` : full));
+}
+
 // summarizeGroup(groupId, userId, opts?)
 //   opts.projectId — force tasks into this project (e.g. user clicked
 //   "Summarize now" from a specific project's dashboard). Without it we fall
