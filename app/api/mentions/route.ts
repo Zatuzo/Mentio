@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSession } from '@/app/lib/session';
 import { prisma } from '@/app/lib/db';
+import { decryptText } from '@/app/lib/crypto';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -23,7 +24,7 @@ export async function GET(req: NextRequest) {
   return NextResponse.json(
     mentions.map((m) => ({
       id: m.id,
-      text: m.text,
+      text: decryptText(m.text),
       senderName: m.senderName,
       senderJid: m.senderJid,
       mentionedJid: m.mentionedJid,
