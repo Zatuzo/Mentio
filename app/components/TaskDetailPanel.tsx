@@ -4,11 +4,13 @@ import { useState, useEffect, useRef } from 'react';
 import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Trash2, Calendar, X, MessageSquare, FileText } from 'lucide-react';
+import { Trash2, Calendar, X, MessageSquare, Bot, GitPullRequest, Loader2, AlertCircle, CheckCircle2, ExternalLink, FileText, FilePen, Info, Cpu } from 'lucide-react';
 import { ImageAttachments } from './ImageAttachments';
 import { toast } from 'sonner';
 import { type BoardTask, PRIORITY_CONFIG } from './KanbanTaskCard';
 import { type ProjectStatus, type ProjectMember } from './KanbanBoard';
+import { AGENT_MODELS, type AgentModel } from '@/app/lib/agent-executor';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 interface Props {
   task: BoardTask | null;
