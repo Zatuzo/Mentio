@@ -79,6 +79,7 @@ const { classifyDumpMessage } = require('./dump-classifier');
 const { bufferMessage } = require('./group-chat-buffer');
 const { shouldRecordMention } = require('./listener-policy');
 const { encryptText } = require('./crypto');
+const { classifyMessage } = require('./watsonx');
 
 // Emoji yang memicu pembuatan task dari pesan yang di-react.
 const TASK_EMOJI = process.env.TASK_EMOJI || '📌';
@@ -996,6 +997,13 @@ async function start() {
           maybeAutoSummarize(userId, remoteJid).catch((e) =>
             console.error('[listener] auto-summarize error', e.message)
           );
+          // Tag the mention with a watsonx-classified category, if configured.
+          // Fire-and-forget: classification is a nice-to-have, never blocks
+          // ingestion on IBM's API being slow or unavailable.
+          classifyMessage(text).then((category) => {
+            if (!category) return;
+            return prisma.mention.update({ where: { id: savedMention.id }, data: { category } });
+          }).catch((e) => console.error('[listener] watsonx classify error', e.message));
         }
       } catch (err) {
         console.error('[listener] error handling message', err);
