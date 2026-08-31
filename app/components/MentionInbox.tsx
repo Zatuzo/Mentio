@@ -14,6 +14,7 @@ import { PRIORITY_CONFIG } from './KanbanTaskCard';
 type Mention = {
   id: string;
   text: string;
+  category?: string | null;
   senderName: string | null;
   senderJid: string;
   mentionedJid: string | null;
