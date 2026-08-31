@@ -139,3 +139,178 @@ function OverviewCard({
     </Card>
   );
 }
+function PersonalView({ data, range }: { data: AnalyticsData; range: number }) {
+  const { overview, dailyVolume, byGroup, byPriority, openTasks } = data;
+
+  const formattedVolume = dailyVolume.map((d) => ({ ...d, label: formatDate(d.date, range) }));
+  const formattedGroups = byGroup.map((g) => ({
+    ...g,
+    label: g.name.length > 18 ? g.name.slice(0, 16) + '…' : g.name,
+  }));
+  const formattedPriority = byPriority
+    .filter((p) => p.todo + p.in_progress + p.done > 0)
+    .map((p) => ({ ...p, label: PRIORITY_LABELS[p.priority] }));
+
+  return (
+    <div className="space-y-4">
+      {/* Overview cards */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <OverviewCard
+          icon={CheckCircle2}
+          label={`Selesai ${range} hari`}
+          value={overview.completedInRange}
+          sub="tasks diselesaikan"
+        />
+        <OverviewCard
+          icon={TrendingUp}
+          label="Completion Rate"
+          value={`${overview.completionRate}%`}
+          sub="dari total tasks saya"
+        />
+        <OverviewCard
+          icon={Clock}
+          label="Avg. Cycle Time"
+          value={overview.avgCycleTime !== null ? `${overview.avgCycleTime} hari` : '-'}
+          sub="rata-rata buat ke selesai"
+        />
+        <OverviewCard
+          icon={MessageSquare}
+          label={`Mention ${range} hari`}
+          value={overview.mentionCount}
+          sub="pesan masuk ke grup"
+        />
+      </div>
+
+      {/* Daily volume chart */}
+      <Card className="bg-card/60 border-border/60">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm font-semibold">Volume Tasks Harian</CardTitle>
+          <CardDescription className="text-xs">Tasks dibuat vs diselesaikan per hari</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <ChartContainer config={volumeChartConfig} className="h-[220px] w-full">
+            <BarChart data={formattedVolume} barGap={3} barCategoryGap="35%">
+              <CartesianGrid vertical={false} stroke="oklch(1 0 0 / 6%)" />
+              <XAxis
+                dataKey="label"
+                tickLine={false}
+                axisLine={false}
+                tick={{ fontSize: 10, fill: 'oklch(0.55 0 0)' }}
+                interval={range === 30 ? 4 : 0}
+              />
+              <YAxis
+                tickLine={false}
+                axisLine={false}
+                tick={{ fontSize: 10, fill: 'oklch(0.55 0 0)' }}
+                width={20}
+                allowDecimals={false}
+              />
+              <ChartTooltip content={<ChartTooltipContent />} cursor={{ fill: 'oklch(1 0 0 / 4%)' }} />
+              <ChartLegend content={<ChartLegendContent />} />
+              <Bar dataKey="created"   fill="var(--color-created)"   radius={[3, 3, 0, 0]} maxBarSize={24} />
+              <Bar dataKey="completed" fill="var(--color-completed)" radius={[3, 3, 0, 0]} maxBarSize={24} />
+            </BarChart>
+          </ChartContainer>
+        </CardContent>
+      </Card>
+
+      {/* Group breakdown + Priority */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+        <Card className="bg-card/60 border-border/60">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-semibold">Tasks per Group</CardTitle>
+            <CardDescription className="text-xs">Distribusi status per WA group</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {formattedGroups.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-8">Belum ada data group</p>
+            ) : (
+              <ChartContainer config={statusChartConfig} className="h-[220px] w-full">
+                <BarChart data={formattedGroups} layout="vertical" barGap={2} barCategoryGap="30%">
+                  <CartesianGrid horizontal={false} stroke="oklch(1 0 0 / 6%)" />
+                  <XAxis type="number" tickLine={false} axisLine={false} tick={{ fontSize: 10, fill: 'oklch(0.55 0 0)' }} allowDecimals={false} />
+                  <YAxis dataKey="label" type="category" tickLine={false} axisLine={false} tick={{ fontSize: 10, fill: 'oklch(0.55 0 0)' }} width={88} />
+                  <ChartTooltip content={<ChartTooltipContent />} cursor={{ fill: 'oklch(1 0 0 / 4%)' }} />
+                  <ChartLegend content={<ChartLegendContent />} />
+                  <Bar dataKey="todo"        fill="var(--color-todo)"        stackId="a" maxBarSize={18} />
+                  <Bar dataKey="in_progress" fill="var(--color-in_progress)" stackId="a" maxBarSize={18} />
+                  <Bar dataKey="done"        fill="var(--color-done)"        stackId="a" radius={[0, 3, 3, 0]} maxBarSize={18} />
+                </BarChart>
+              </ChartContainer>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card className="bg-card/60 border-border/60">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-semibold">Distribusi Prioritas</CardTitle>
+            <CardDescription className="text-xs">Tasks per level prioritas</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {formattedPriority.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-8">Belum ada data</p>
+            ) : (
+              <ChartContainer config={statusChartConfig} className="h-[220px] w-full">
+                <BarChart data={formattedPriority} layout="vertical" barGap={2} barCategoryGap="30%">
+                  <CartesianGrid horizontal={false} stroke="oklch(1 0 0 / 6%)" />
+                  <XAxis type="number" tickLine={false} axisLine={false} tick={{ fontSize: 10, fill: 'oklch(0.55 0 0)' }} allowDecimals={false} />
+                  <YAxis dataKey="label" type="category" tickLine={false} axisLine={false} tick={{ fontSize: 10, fill: 'oklch(0.55 0 0)' }} width={55} />
+                  <ChartTooltip content={<ChartTooltipContent />} cursor={{ fill: 'oklch(1 0 0 / 4%)' }} />
+                  <ChartLegend content={<ChartLegendContent />} />
+                  <Bar dataKey="todo"        fill="var(--color-todo)"        stackId="a" maxBarSize={18} />
+                  <Bar dataKey="in_progress" fill="var(--color-in_progress)" stackId="a" maxBarSize={18} />
+                  <Bar dataKey="done"        fill="var(--color-done)"        stackId="a" radius={[0, 3, 3, 0]} maxBarSize={18} />
+                </BarChart>
+              </ChartContainer>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Oldest open tasks */}
+      <Card className="bg-card/60 border-border/60">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm font-semibold">Tasks Terlama Belum Selesai</CardTitle>
+          <CardDescription className="text-xs">Top 10 open tasks diurutkan dari paling lama dibuat</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {openTasks.length === 0 ? (
+            <p className="text-sm text-muted-foreground text-center py-6">Semua tasks sudah selesai!</p>
+          ) : (
+            <div className="space-y-0 border border-border/60 rounded-lg overflow-hidden">
+              <div className="grid grid-cols-[1fr_auto_auto_auto] gap-3 px-3 py-2 bg-muted/20 border-b border-border/60">
+                <span className="text-xs text-muted-foreground">Task</span>
+                <span className="text-xs text-muted-foreground w-20 text-center">Status</span>
+                <span className="text-xs text-muted-foreground w-16 text-right">Usia</span>
+                <span className="text-xs text-muted-foreground w-16 text-right">Due</span>
+              </div>
+              {openTasks.map((t) => {
+                const isOverdue = t.dueDate && new Date(t.dueDate) < new Date();
+                return (
+                  <div key={t.id} className="grid grid-cols-[1fr_auto_auto_auto] gap-3 px-3 py-2.5 border-b last:border-0 border-border/40 hover:bg-muted/20 transition-colors">
+                    <div className="min-w-0">
+                      <p className="text-sm truncate">{t.title}</p>
+                      {t.group && <p className="text-xs text-muted-foreground truncate">{t.group.name}</p>}
+                    </div>
+                    <div className="flex items-center w-20 justify-center">
+                      <Badge variant="outline" className="text-[10px] h-5 px-1.5 font-normal">
+                        {STATUS_LABEL[t.status]}
+                      </Badge>
+                    </div>
+                    <span className={`text-xs w-16 text-right self-center ${t.ageDays >= 7 ? 'text-amber-400' : 'text-muted-foreground'}`}>
+                      {t.ageDays}h lalu
+                    </span>
+                    <span className={`text-xs w-16 text-right self-center ${isOverdue ? 'text-red-400' : 'text-muted-foreground'}`}>
+                      {t.dueDate ? new Date(t.dueDate).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' }) : '-'}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
