@@ -25,7 +25,6 @@
     "db:push": "prisma db push",
     "db:studio": "prisma studio",
     "keygen": "node scripts/generate-encryption-key.js",
-    "keygen": "node scripts/generate-encryption-key.js",
     "postinstall": "[ \"$npm_config_global\" = \"true\" ] || prisma generate",
     "sessions": "node src/session-manager.js",
     "test": "vitest run",
