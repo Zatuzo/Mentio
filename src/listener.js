@@ -731,6 +731,12 @@ async function start() {
       sharedSock = sock;
       myLid = sock.user?.lid?.replace(/:\d+@/, '@') || null;
       console.log('[listener] connected. MY_JID =', MY_JID, '| MY_LID =', myLid || '(none)');
+      console.log(
+        '[listener] features: encryption=%s, watsonx=%s, rate-limit=%s/window',
+        process.env.ENCRYPTION_KEY ? 'on' : 'off (plaintext)',
+        process.env.WATSONX_PROJECT_ID ? 'on' : 'off',
+        process.env.MENTION_RATE_LIMIT_MAX ?? '5 (default)'
+      );
       writeHeartbeat({ connected: true, myJid: MY_JID });
       notify(`✅ *Mentio listener connected*\nJID: \`${MY_JID}\`\nLID: \`${myLid || 'none'}\``);
 
