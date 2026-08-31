@@ -314,3 +314,187 @@ function PersonalView({ data, range }: { data: AnalyticsData; range: number }) {
   );
 }
 
+function TeamView({ data, range }: { data: AnalyticsData; range: number }) {
+  const { byMember } = data;
+
+  if (byMember.length === 0) {
+    return (
+      <div className="flex items-center justify-center h-48 text-muted-foreground gap-2">
+        <Users className="h-5 w-5" />
+        <span className="text-sm">Belum ada member di project ini</span>
+      </div>
+    );
+  }
+
+  const totalDone = byMember.reduce((s, m) => s + m.done, 0);
+  const totalInProgress = byMember.reduce((s, m) => s + m.in_progress, 0);
+  const totalTodo = byMember.reduce((s, m) => s + m.todo, 0);
+  const totalInRange = byMember.reduce((s, m) => s + m.completedInRange, 0);
+  const avgRate = byMember.length > 0
+    ? Math.round(byMember.reduce((s, m) => s + m.completionRate, 0) / byMember.length)
+    : 0;
+  const topPerformer = byMember[0]; // sorted by completedInRange desc
+
+  const chartData = byMember.map((m) => ({
+    label: m.name.length > 16 ? m.name.slice(0, 14) + '…' : m.name,
+    todo: m.todo,
+    in_progress: m.in_progress,
+    done: m.done,
+  }));
+
+  const chartHeight = Math.max(200, byMember.length * 52);
+
+  return (
+    <div className="space-y-4">
+      {/* Team overview */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <OverviewCard
+          icon={Users}
+          label="Total Member"
+          value={byMember.length}
+          sub="pengguna aktif di project"
+        />
+        <OverviewCard
+          icon={CheckCircle2}
+          label={`Selesai Tim ${range} hari`}
+          value={totalInRange}
+          sub={`dari ${totalDone} total done`}
+        />
+        <OverviewCard
+          icon={TrendingUp}
+          label="Avg Completion Rate"
+          value={`${avgRate}%`}
+          sub="rata-rata seluruh member"
+        />
+        <OverviewCard
+          icon={Clock}
+          label="Top Performer"
+          value={topPerformer.completedInRange}
+          sub={`selesai oleh ${topPerformer.name.split(' ')[0]}`}
+        />
+      </div>
+
+      {/* Member comparison chart */}
+      <Card className="bg-card/60 border-border/60">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm font-semibold">Perbandingan Member</CardTitle>
+          <CardDescription className="text-xs">Distribusi status tasks per anggota tim</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <ChartContainer config={statusChartConfig} style={{ height: chartHeight }} className="w-full">
+            <BarChart data={chartData} layout="vertical" barGap={2} barCategoryGap="28%">
+              <CartesianGrid horizontal={false} stroke="oklch(1 0 0 / 6%)" />
+              <XAxis type="number" tickLine={false} axisLine={false} tick={{ fontSize: 10, fill: 'oklch(0.55 0 0)' }} allowDecimals={false} />
+              <YAxis
+                dataKey="label"
+                type="category"
+                tickLine={false}
+                axisLine={false}
+                tick={{ fontSize: 11, fill: 'oklch(0.70 0 0)' }}
+                width={110}
+              />
+              <ChartTooltip content={<ChartTooltipContent />} cursor={{ fill: 'oklch(1 0 0 / 4%)' }} />
+              <ChartLegend content={<ChartLegendContent />} />
+              <Bar dataKey="todo"        fill="var(--color-todo)"        stackId="a" maxBarSize={20} />
+              <Bar dataKey="in_progress" fill="var(--color-in_progress)" stackId="a" maxBarSize={20} />
+              <Bar dataKey="done"        fill="var(--color-done)"        stackId="a" radius={[0, 3, 3, 0]} maxBarSize={20} />
+            </BarChart>
+          </ChartContainer>
+        </CardContent>
+      </Card>
+
+      {/* Member stats table */}
+      <Card className="bg-card/60 border-border/60">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm font-semibold">Statistik Per Member</CardTitle>
+          <CardDescription className="text-xs">Diurutkan berdasarkan tasks selesai dalam periode ini</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="border border-border/60 rounded-lg overflow-hidden">
+            {/* Header */}
+            <div className="grid grid-cols-[auto_1fr_auto_auto_auto_auto] gap-x-4 px-3 py-2 bg-muted/20 border-b border-border/60">
+              <span className="text-xs text-muted-foreground w-5">#</span>
+              <span className="text-xs text-muted-foreground">Member</span>
+              <span className="text-xs text-muted-foreground w-20 text-center">Status</span>
+              <span className="text-xs text-muted-foreground w-16 text-right">Selesai</span>
+              <span className="text-xs text-muted-foreground w-14 text-right">Rate</span>
+              <span className="text-xs text-muted-foreground w-16 text-right">Cycle</span>
+            </div>
+            {byMember.map((m, idx) => (
+              <div
+                key={m.userId}
+                className="grid grid-cols-[auto_1fr_auto_auto_auto_auto] gap-x-4 px-3 py-2.5 border-b last:border-0 border-border/40 hover:bg-muted/20 transition-colors items-center"
+              >
+                <span className="text-xs text-muted-foreground w-5 tabular-nums">{idx + 1}</span>
+                <div className="min-w-0">
+                  <p className="text-sm font-medium truncate">{m.name}</p>
+                  <p className="text-xs text-muted-foreground tabular-nums">
+                    {m.done}d · {m.in_progress}p · {m.todo}t
+                  </p>
+                </div>
+                <div className="flex items-center gap-1 w-20 justify-center">
+                  <div className="flex h-1.5 w-16 rounded-full overflow-hidden bg-muted/40">
+                    {m.done + m.in_progress + m.todo > 0 && (
+                      <>
+                        <div
+                          style={{ width: `${Math.round((m.done / (m.done + m.in_progress + m.todo)) * 100)}%` }}
+                          className="h-full bg-foreground"
+                        />
+                        <div
+                          style={{ width: `${Math.round((m.in_progress / (m.done + m.in_progress + m.todo)) * 100)}%` }}
+                          className="h-full bg-muted-foreground"
+                        />
+                      </>
+                    )}
+                  </div>
+                </div>
+                <span className="text-sm font-semibold tabular-nums w-16 text-right">
+                  {m.completedInRange}
+                  <span className="text-xs text-muted-foreground font-normal"> /{range}d</span>
+                </span>
+                <span className="text-xs tabular-nums w-14 text-right text-muted-foreground">
+                  {m.completionRate}%
+                </span>
+                <span className="text-xs tabular-nums w-16 text-right text-muted-foreground">
+                  {m.avgCycleTime !== null ? `${m.avgCycleTime}h` : '-'}
+                </span>
+              </div>
+            ))}
+            {/* Footer totals */}
+            <div className="grid grid-cols-[auto_1fr_auto_auto_auto_auto] gap-x-4 px-3 py-2 bg-muted/10 border-t border-border/60 items-center">
+              <span className="w-5" />
+              <span className="text-xs text-muted-foreground font-medium">Total tim</span>
+              <div className="w-20" />
+              <span className="text-sm font-bold tabular-nums w-16 text-right">
+                {totalInRange}
+                <span className="text-xs text-muted-foreground font-normal"> /{range}d</span>
+              </span>
+              <span className="text-xs tabular-nums w-14 text-right text-muted-foreground">{avgRate}%</span>
+              <span className="w-16" />
+            </div>
+          </div>
+          <p className="text-xs text-muted-foreground mt-2">
+            d = done · p = in progress · t = todo · cycle = avg hari buat→selesai
+          </p>
+        </CardContent>
+      </Card>
+
+      {/* Aggregate task counts (small info row) */}
+      <div className="flex gap-6 px-1">
+        <div className="text-center">
+          <p className="text-2xl font-bold tabular-nums">{totalDone}</p>
+          <p className="text-xs text-muted-foreground">Done</p>
+        </div>
+        <div className="text-center">
+          <p className="text-2xl font-bold tabular-nums text-muted-foreground">{totalInProgress}</p>
+          <p className="text-xs text-muted-foreground">In Progress</p>
+        </div>
+        <div className="text-center">
+          <p className="text-2xl font-bold tabular-nums" style={{ color: FG_DIM }}>{totalTodo}</p>
+          <p className="text-xs text-muted-foreground">To Do</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
