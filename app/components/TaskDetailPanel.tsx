@@ -28,7 +28,70 @@ export function TaskDetailPanel({ task, groups, statuses, members, onClose, onUp
   const [startDate, setStartDate] = useState('');
   const [dueDate, setDueDate] = useState('');
   const [savingField, setSavingField] = useState<string | null>(null);
+  const [agentRunning, setAgentRunning] = useState(false);
+  const [agentLog, setAgentLog] = useState<{ time: string; type: string; message: string }[]>([]);
+  const [selectedModel, setSelectedModel] = useState<AgentModel>('deepseek-coder');
+  const logEndRef = useRef<HTMLDivElement>(null);
   const initial = useRef({ title: '', description: '', startDate: '', dueDate: '' });
+
+  // Poll agent status while running
+  useEffect(() => {
+    if (!task) return;
+    if (task.agentStatus !== 'running' && !agentRunning) return;
+
+    async function fetchAgentState() {
+      const res = await fetch(`/api/tasks/${task!.id}`).catch(() => null);
+      if (!res?.ok) return;
+      const data = await res.json();
+      onUpdate(task!.id, {
+        agentStatus: data.agentStatus,
+        agentResult: data.agentResult,
+        agentPrUrl: data.agentPrUrl,
+        agentBranch: data.agentBranch,
+        agentError: data.agentError,
+        agentFinishedAt: data.agentFinishedAt,
+        agentLog: data.agentLog ?? null,
+      });
+      if (data.agentLog) {
+        try {
+          const entries = JSON.parse(data.agentLog);
+          setAgentLog(entries);
+          setTimeout(() => logEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 50);
+        } catch {}
+      }
+      return data.agentStatus;
+    }
+
+    // Fetch immediately on open, then poll every 3s
+    fetchAgentState();
+    const interval = setInterval(async () => {
+      const status = await fetchAgentState();
+      if (status !== 'running') {
+        setAgentRunning(false);
+        clearInterval(interval);
+      }
+    }, 3000);
+    return () => clearInterval(interval);
+  }, [task?.id, task?.agentStatus, agentRunning]);
+
+  async function runAgent() {
+    if (!task) return;
+    setAgentRunning(true);
+    try {
+      const res = await fetch(`/api/tasks/${task.id}/run-agent`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ model: selectedModel }) });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        toast.error(err.error ?? 'Gagal menjalankan agent');
+        setAgentRunning(false);
+        return;
+      }
+      onUpdate(task.id, { agentStatus: 'running', agentEnabled: true });
+      toast.success('Agent mulai bekerja, kamu akan dinotifikasi via Telegram saat selesai');
+    } catch {
+      toast.error('Gagal menjalankan agent');
+      setAgentRunning(false);
+    }
+  }
 
   useEffect(() => {
     if (task) {
@@ -41,6 +104,10 @@ export function TaskDetailPanel({ task, groups, statuses, members, onClose, onUp
       setStartDate(s);
       setDueDate(due);
       initial.current = { title: t, description: d, startDate: s, dueDate: due };
+      // Initialize agentLog from task data if available
+      if (task.agentLog) {
+        try { setAgentLog(JSON.parse(task.agentLog)); } catch {}
+      }
     }
   }, [task?.id]);
 
