@@ -3,7 +3,13 @@
 // and reason about without wading through the Baileys socket plumbing.
 
 const WINDOW_MS = Number(process.env.MENTION_RATE_LIMIT_WINDOW_MS) || 60_000; // 1 minute
-const MAX_PER_WINDOW = Number(process.env.MENTION_RATE_LIMIT_MAX) || 5;
+
+// `|| 5` alone would treat MENTION_RATE_LIMIT_MAX=0 as "unset" (0 is falsy)
+// instead of "disable the limit", so parse explicitly to allow that escape
+// hatch for a WA number that's known to be low-volume.
+const rawMax = Number(process.env.MENTION_RATE_LIMIT_MAX);
+const MAX_PER_WINDOW = Number.isFinite(rawMax) && rawMax >= 0 ? rawMax : 5;
+const DISABLED = MAX_PER_WINDOW === 0;
 
 // key -> array of timestamps (ms) of mentions accepted for that (group, sender) pair
 const recentMentions = new Map();
@@ -18,6 +24,8 @@ function keyFor(groupId, senderJid) {
 // false once the sender has already hit the limit inside the current window
 // — the listener should skip persisting that mention.
 function shouldRecordMention(groupId, senderJid) {
+  if (DISABLED) return true;
+
   const key = keyFor(groupId, senderJid);
   const now = Date.now();
   const timestamps = (recentMentions.get(key) || []).filter((t) => now - t < WINDOW_MS);
