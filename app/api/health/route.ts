@@ -68,5 +68,13 @@ export async function GET() {
     checks.lastMentionAt = null;
   }
 
+  // Config visibility for optional features — doesn't affect `ok`, just
+  // saves an operator from guessing why encryption/classification isn't
+  // happening (missing env var vs. actually broken).
+  checks.features = {
+    encryptionConfigured: !!process.env.ENCRYPTION_KEY,
+    watsonxConfigured: !!process.env.WATSONX_PROJECT_ID,
+  };
+
   return NextResponse.json({ ok, ...checks }, { status: ok ? 200 : 503 });
 }
