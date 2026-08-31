@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutDashboard, Settings, Inbox, CalendarDays } from 'lucide-react';
+import { LayoutDashboard, Settings, Inbox, CalendarDays, BarChart2 } from 'lucide-react';
 import {
   SidebarGroup,
   SidebarGroupContent,
@@ -29,6 +29,7 @@ function SidebarNavDefault({ unreadCount = 0 }: Props) {
     { href: '/dashboard', labelKey: 'nav_dashboard'  as const, icon: LayoutDashboard, badge: 0 },
     { href: '/inbox',     labelKey: 'nav_inbox'      as const, icon: Inbox,           badge: unreadCount },
     { href: '/calendar',  labelKey: 'nav_calendar'   as const, icon: CalendarDays,    badge: 0 },
+    { href: '/analytics', labelKey: 'nav_analytics'  as const, icon: BarChart2,       badge: 0 },
     { href: '/settings',  labelKey: 'nav_settings'   as const, icon: Settings,        badge: 0 },
   ];
 
@@ -70,6 +71,7 @@ function SidebarNavBrutalism({ unreadCount = 0 }: Props) {
     { href: '/dashboard', labelKey: 'nav_dashboard' as const, code: 'D-01', badge: 0 },
     { href: '/inbox',     labelKey: 'nav_inbox'     as const, code: 'D-02', badge: unreadCount },
     { href: '/calendar',  labelKey: 'nav_calendar'  as const, code: 'D-03', badge: 0 },
+    { href: '/analytics', labelKey: 'nav_analytics' as const, code: 'D-04', badge: 0 },
     { href: '/settings',  labelKey: 'nav_settings'  as const, code: 'SYS-1', badge: 0 },
   ];
 
