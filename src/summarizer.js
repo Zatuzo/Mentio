@@ -131,12 +131,23 @@ async function summarizeGroup(groupId, userId, opts = {}) {
   const mentions = mentionsRaw.map((m) => ({ ...m, text: decryptText(m.text) }));
 
   const group = await prisma.group.findUnique({ where: { id: groupId } });
+  const user = userId
+    ? await prisma.user.findUnique({ where: { id: userId }, select: { name: true } })
+    : null;
 
+  const resolveMentionText = await buildMentionResolver(mentions.map((m) => m.text), groupId);
   const lines = mentions.map(
-    (m) => `[${m.timestamp.toISOString()}] ${m.senderName || m.senderJid}: ${m.text}`
+    (m) => `[${m.timestamp.toISOString()}] ${m.senderName || m.senderJid}: ${resolveMentionText(m.text)}`
   );
 
-  const prompt = `You are analyzing WhatsApp messages from group "${group?.name || groupId}" where the user was tagged/mentioned.
+  const projectId = await resolveProjectId(groupId, userId, opts);
+  const { text: memberListText, ids: memberIds } = await projectMemberContext(projectId);
+  const allowTeammates = await canAssignTeammates(userId, groupId);
+
+  const prompt = `You are analyzing WhatsApp messages from group "${group?.name || groupId}" where ${user?.name || 'the user'} was tagged/mentioned. You are extracting tasks on behalf of ${user?.name || 'this user'} specifically.
+
+## Team Members
+${memberListText}
 
 Return ONLY a valid JSON object (no markdown, no code block) with this exact shape:
 {
@@ -147,7 +158,9 @@ Return ONLY a valid JSON object (no markdown, no code block) with this exact sha
       "description": "<detail or context, optional>",
       "requester": "<sender name>",
       "requesterJid": "<sender jid>",
-      "priority": "<urgent|high|medium|low|none>"
+      "priority": "<urgent|high|medium|low|none>",
+      "suggestedAssigneeId": "<member id from Team Members above, or null>",
+      "directedAt": "<name of the specific person this request is addressed to, or null>"
     }
   ]
 }
@@ -160,9 +173,12 @@ Priority rules (infer from message content and tone):
 - none: unclear, or purely informational with no time pressure
 
 Rules:
-- Only include tasks that require the user to DO something (skip FYI messages)
+- Only include tasks that require someone to DO something (skip FYI messages)
+- Do NOT extract a task from jokes, sarcasm, banter, venting, or casual chit-chat. Only extract when the message is a genuine, sincere work instruction or request. When tone is ambiguous, err on the side of NOT creating a task.
 - If no actionable tasks, return empty array for tasks
 - summary field must be markdown formatted
+- suggestedAssigneeId: set to a Team Member's id ONLY when the message clearly names or directs that specific person to do the task (e.g. "Budi tolong benerin..."); otherwise null — never guess
+- directedAt: who the request is actually addressed to, by name. Set to null if the request is general/unaddressed to the whole group, OR if it's addressed to ${user?.name || 'the user'} themselves. If it clearly names/directs a DIFFERENT specific person, put that person's name here instead of null. A literal "@Name" token in the message text is a strong signal of who it's addressed to — treat it as such.
 
 Messages:
 ${lines.join('\n')}`;
@@ -196,34 +212,12 @@ ${lines.join('\n')}`;
 
   const summary = await prisma.summary.create({ data: summaryData });
 
-  // Resolve which project these tasks belong to.
-  // Precedence: explicit opts.projectId (verified) > user's oldest project
-  // that owns this group (deterministic fallback).
-  let projectId = null;
-  if (userId) {
-    if (opts.projectId) {
-      const allowed = await prisma.projectGroup.findFirst({
-        where: {
-          projectId: opts.projectId,
-          groupId,
-          project: { members: { some: { userId } } },
-        },
-      });
-      if (allowed) projectId = opts.projectId;
-    }
-    if (!projectId) {
-      const pg = await prisma.projectGroup.findFirst({
-        where: { groupId, project: { members: { some: { userId } } } },
-        orderBy: { project: { createdAt: 'asc' } },
-      });
-      if (pg) projectId = pg.projectId;
-    }
-  }
-
-  // Create tasks extracted by AI
-  if (extractedTasks.length > 0 && userId) {
+  // Create tasks extracted by AI — skip ones clearly directed at someone
+  // else when this user hasn't opted into teammate assignment.
+  const tasksToCreate = extractedTasks.filter((t) => shouldCreateTask(t, allowTeammates));
+  if (tasksToCreate.length > 0 && userId) {
     await prisma.task.createMany({
-      data: extractedTasks.map((t) => {
+      data: tasksToCreate.map((t) => {
         const validPriorities = ['urgent', 'high', 'medium', 'low', 'none'];
         const priority = validPriorities.includes(t.priority) ? t.priority : 'none';
         return {
@@ -235,13 +229,14 @@ ${lines.join('\n')}`;
           description: t.description || null,
           requester: t.requester || null,
           requesterJid: t.requesterJid || null,
+          assignedToId: resolveAssignee(t.suggestedAssigneeId, memberIds, userId, allowTeammates),
           status: 'todo',
           priority,
           ...defaultTaskDates(),
         };
       }),
     });
-    console.log(`[summarizer] created ${extractedTasks.length} tasks for user ${userId}`);
+    console.log(`[summarizer] created ${tasksToCreate.length}/${extractedTasks.length} tasks for user ${userId}`);
   }
 
   await prisma.mention.updateMany({
