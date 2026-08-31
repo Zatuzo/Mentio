@@ -111,9 +111,54 @@ export async function GET(req: NextRequest) {
     });
     const dailyVolume = days.map((day) => ({ date: day, created: createdByDay[day], completed: completedByDay[day] }));
 
+    // ── By group ─────────────────────────────────────────────────────────────
+
+    const groupMap: Record<string, { id: string; name: string; todo: number; in_progress: number; done: number }> = {};
+    allTasks.forEach((t) => {
+      if (!t.group) return;
+      if (!groupMap[t.group.id]) {
+        groupMap[t.group.id] = { id: t.group.id, name: t.group.name, todo: 0, in_progress: 0, done: 0 };
+      }
+      const key = t.status as 'todo' | 'in_progress' | 'done';
+      if (key in groupMap[t.group.id]) groupMap[t.group.id][key]++;
+    });
+    const byGroup = Object.values(groupMap).sort((a, b) => (b.todo + b.in_progress) - (a.todo + a.in_progress));
+
+    // ── By priority ──────────────────────────────────────────────────────────
+
+    const priorityOrder = ['urgent', 'high', 'medium', 'low', 'none'];
+    const priorityMap: Record<string, { todo: number; in_progress: number; done: number }> = {};
+    priorityOrder.forEach((p) => { priorityMap[p] = { todo: 0, in_progress: 0, done: 0 }; });
+    allTasks.forEach((t) => {
+      const p = t.priority ?? 'none';
+      const s = t.status as 'todo' | 'in_progress' | 'done';
+      if (priorityMap[p] && s in priorityMap[p]) priorityMap[p][s]++;
+    });
+    const byPriority = priorityOrder.map((p) => ({ priority: p, ...priorityMap[p] }));
+
+    // ── Open tasks ────────────────────────────────────────────────────────────
+
+    const openTasks = allTasks
+      .filter((t) => t.status !== 'done')
+      .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime())
+      .slice(0, 10)
+      .map((t) => ({
+        id: t.id,
+        title: t.title,
+        status: t.status,
+        priority: t.priority,
+        dueDate: t.dueDate?.toISOString() ?? null,
+        createdAt: t.createdAt.toISOString(),
+        group: t.group,
+        ageDays: Math.floor((Date.now() - t.createdAt.getTime()) / 86400000),
+      }));
+
     return NextResponse.json({
       overview: { completedInRange: completedInRange.length, completionRate, avgCycleTime, mentionCount: myMentions },
       dailyVolume,
+      byGroup,
+      byPriority,
+      openTasks,
     });
   } catch (err) {
     console.error('[api] GET /api/analytics error:', err);
