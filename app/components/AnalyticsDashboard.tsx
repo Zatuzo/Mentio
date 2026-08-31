@@ -139,6 +139,7 @@ function OverviewCard({
     </Card>
   );
 }
+
 function PersonalView({ data, range }: { data: AnalyticsData; range: number }) {
   const { overview, dailyVolume, byGroup, byPriority, openTasks } = data;
 
@@ -498,3 +499,112 @@ function TeamView({ data, range }: { data: AnalyticsData; range: number }) {
   );
 }
 
+export function AnalyticsDashboard({ projectId }: { projectId: string }) {
+  const [range, setRange] = useState<7 | 30>(7);
+  const [scope, setScope] = useState<'personal' | 'team'>('personal');
+  const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
+  const [data, setData] = useState<AnalyticsData | null>(null);
+  const [initialLoading, setInitialLoading] = useState(true);
+  const [fetching, setFetching] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    // First load: show full spinner. Subsequent: keep old content, dim it.
+    if (!data) setInitialLoading(true);
+    else setFetching(true);
+    setError(null);
+
+    const params = new URLSearchParams({ projectId, range: String(range), scope });
+    if (scope === 'personal' && selectedGroupId) params.set('groupId', selectedGroupId);
+
+    fetch(`/api/analytics?${params}`)
+      .then((r) => {
+        if (!r.ok) throw new Error('Failed to load analytics');
+        return r.json();
+      })
+      .then(setData)
+      .catch((e) => setError(e.message))
+      .finally(() => {
+        setInitialLoading(false);
+        setFetching(false);
+      });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [projectId, range, scope, selectedGroupId]);
+
+  if (initialLoading) {
+    return (
+      <div className="flex items-center justify-center h-64 text-muted-foreground gap-2">
+        <Loader2 className="h-5 w-5 animate-spin" />
+        <span className="text-sm">Loading analytics…</span>
+      </div>
+    );
+  }
+
+  if (error || !data) {
+    return (
+      <div className="flex items-center justify-center h-64 text-muted-foreground gap-2">
+        <AlertCircle className="h-5 w-5" />
+        <span className="text-sm">{error ?? 'No data'}</span>
+      </div>
+    );
+  }
+
+  return (
+    <div className={`space-y-5 transition-opacity duration-150 ${fetching ? 'opacity-50' : 'opacity-100'}`}>
+      {/* Controls row */}
+      <div className="flex flex-wrap items-center gap-3">
+        {/* Scope toggle */}
+        <div className="flex items-center gap-1">
+          <FilterPill active={scope === 'personal'} onClick={() => setScope('personal')}>
+            Saya
+          </FilterPill>
+          <FilterPill active={scope === 'team'} onClick={() => setScope('team')}>
+            Tim
+          </FilterPill>
+        </div>
+
+        <div className="w-px h-4 bg-border/60 hidden sm:block" />
+
+        {/* Period filter */}
+        <div className="flex items-center gap-1">
+          <span className="text-xs text-muted-foreground mr-0.5">Periode:</span>
+          {([7, 30] as const).map((r) => (
+            <FilterPill key={r} active={range === r} onClick={() => setRange(r)}>
+              {r} hari
+            </FilterPill>
+          ))}
+        </div>
+
+        {fetching && (
+          <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground/50 ml-auto" />
+        )}
+      </div>
+
+      {/* Group filter (personal scope, multiple groups available) */}
+      {scope === 'personal' && data.groups.length > 1 && (
+        <div className="flex flex-wrap items-center gap-1.5">
+          <span className="text-xs text-muted-foreground mr-0.5">Group:</span>
+          <FilterPill active={selectedGroupId === null} onClick={() => setSelectedGroupId(null)}>
+            Semua
+          </FilterPill>
+          {data.groups.map((g) => (
+            <FilterPill
+              key={g.id}
+              active={selectedGroupId === g.id}
+              onClick={() => setSelectedGroupId(g.id)}
+            >
+              {g.name.length > 22 ? g.name.slice(0, 20) + '…' : g.name}
+            </FilterPill>
+          ))}
+        </div>
+      )}
+
+      {/* Tab content */}
+      {scope === 'personal' ? (
+        <PersonalView data={data} range={range} />
+      ) : (
+        <TeamView data={data} range={range} />
+      )}
+    </div>
+  );
+}
