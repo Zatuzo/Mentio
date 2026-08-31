@@ -466,6 +466,122 @@ export function TaskDetailPanel({ task, groups, statuses, members, onClose, onUp
             </div>
           )}
 
+          {/* ── Agent section ─────────────────────────────────────────── */}
+          <div className="border-t border-border pt-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                <Bot className="h-3.5 w-3.5" />
+                <span className="font-medium text-foreground">Agent</span>
+              </div>
+              {(!task.agentStatus || task.agentStatus === 'failed') && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-7 text-xs gap-1.5"
+                  disabled={agentRunning}
+                  onClick={runAgent}
+                >
+                  {agentRunning ? <Loader2 className="h-3 w-3 animate-spin" /> : <Bot className="h-3 w-3" />}
+                  Jalankan Agent
+                </Button>
+              )}
+            </div>
+
+            {/* Model selector: tampil saat agent belum/bisa dijalankan */}
+            {(!task.agentStatus || task.agentStatus === 'failed' || task.agentStatus === 'done') && (
+              <div className="flex flex-col gap-1">
+                <label className="text-[10px] text-muted-foreground font-medium uppercase tracking-wide">Model AI</label>
+                <Select value={selectedModel} onValueChange={(v) => setSelectedModel(v as AgentModel)}>
+                  <SelectTrigger className="h-7 text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {AGENT_MODELS.map((m) => (
+                      <SelectItem key={m.id} value={m.id} className="text-xs">
+                        <div>
+                          <span className="font-medium">{m.label}</span>
+                          <span className="text-muted-foreground ml-1.5">: {m.description}</span>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
+            {/* Running state */}
+            {(task.agentStatus === 'running' || agentRunning) && (
+              <div className="rounded-lg border border-border bg-muted/20 overflow-hidden">
+                <div className="flex items-center gap-2 px-3 py-2 border-b border-border/60">
+                  <Loader2 className="h-3.5 w-3.5 animate-spin text-primary shrink-0" />
+                  <span className="text-xs font-medium">Agent sedang bekerja…</span>
+                  <span className="ml-auto text-[10px] text-muted-foreground">{agentLog.length} langkah</span>
+                </div>
+                <div className="max-h-52 overflow-y-auto px-3 py-2 space-y-1.5 font-mono">
+                  {agentLog.length === 0 ? (
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground py-1">
+                      <Loader2 className="h-3 w-3 animate-spin shrink-0" />
+                      Menginisialisasi…
+                    </div>
+                  ) : (
+                    agentLog.map((entry, i) => (
+                      <AgentLogLine key={i} entry={entry} isLast={i === agentLog.length - 1} />
+                    ))
+                  )}
+                  <div ref={logEndRef} />
+                </div>
+              </div>
+            )}
+
+            {/* Done state */}
+            {task.agentStatus === 'done' && task.agentPrUrl && (
+              <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/5 px-4 py-3 space-y-2.5">
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0" />
+                  <span className="text-sm font-medium text-emerald-400">PR siap untuk direview</span>
+                </div>
+                <a
+                  href={task.agentPrUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-1.5 text-xs text-emerald-400 hover:underline"
+                >
+                  <GitPullRequest className="h-3.5 w-3.5" />
+                  Lihat Pull Request
+                  <ExternalLink className="h-3 w-3" />
+                </a>
+                {task.agentResult && (
+                  <div className="rounded-md bg-black/20 border border-emerald-500/20 px-3 py-2 text-xs text-emerald-300/80 whitespace-pre-wrap leading-relaxed">
+                    {task.agentResult}
+                  </div>
+                )}
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-7 text-xs gap-1.5 mt-1"
+                  onClick={runAgent}
+                  disabled={agentRunning}
+                >
+                  <Bot className="h-3 w-3" />
+                  Jalankan ulang
+                </Button>
+              </div>
+            )}
+
+            {/* Failed state */}
+            {task.agentStatus === 'failed' && (
+              <div className="rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 space-y-1.5">
+                <div className="flex items-center gap-2">
+                  <AlertCircle className="h-4 w-4 text-destructive shrink-0" />
+                  <span className="text-sm font-medium text-destructive">Agent gagal</span>
+                </div>
+                {task.agentError && (
+                  <p className="text-xs text-muted-foreground pl-6">{task.agentError}</p>
+                )}
+              </div>
+            )}
+          </div>
+
           <div className="border-t border-border pt-4">
             <div className="text-xs text-muted-foreground mb-2">Description</div>
             <textarea
