@@ -3,6 +3,7 @@ import { getSession } from '@/app/lib/session';
 import { redirect } from 'next/navigation';
 import { cookies } from 'next/headers';
 import { MentionInbox } from '@/app/components/MentionInbox';
+import { decryptText } from '@/app/lib/crypto';
 import type { Metadata } from 'next';
 
 export const dynamic = 'force-dynamic';
@@ -46,7 +47,7 @@ export default async function InboxPage() {
 
   const serialized = mentions.map((m) => ({
     id: m.id,
-    text: m.text,
+    text: decryptText(m.text),
     senderName: m.senderName,
     senderJid: m.senderJid,
     mentionedJid: m.mentionedJid,
